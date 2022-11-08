@@ -1,7 +1,14 @@
+#include <CircularBuffer.h>
+#include <PS2Keyboard.h>
+#include <set.h>
+
 //select only one of these
 #define USE_C0_WORKAROUND_1 //set c0 2ms before the interrupt
 //#define USE_C0_WORKAROUND_2 //set c0 98us after Y8 goes down (glitch or something?)
 
+#define DISPLAY_REFRESH_RATE 50
+#define KEYBOARD_DATA_PIN 20
+#define KEYBOARD_INT_PIN 19
 /*
  * WORKAROUNDS DESCRIPTION
  * 1) set the fist column status 2ms before the interrupt fires
@@ -15,57 +22,61 @@
  * TODO: fix this workaround to not trigger right after it finished
  */
 
-/* first output on matrix. Interrupt on falling edge goes here
- *  NOTE: there are Y9 and Y10, but the Sony HB10p doesn´t connect them to the matrix
- */
-const int MAT_INT_PIN =  0; //Pin that fires the interrupt. Y0 normally, or Y8 here if using workaround 3
-const int TOTAL_Y_PINS = 9; // Y0..Y8
-const int OUTPUT_LOW_DURATION_MICROS = 18; // each column low time. I think it should be 17.66666
+// Pin that fires the interrupt. Y0 normally, or Y8 here if using workaround 3
+#define MAT_INT_PIN  0 
+// Y0..Y8
+#define TOTAL_Y_PINS 9
+// X0..X7 pins are the inputs in the MSX, so they will be our OUTPUTS here
+#define TOTAL_X_PINS 8
+// each column low time. I measured 17.66666
+#define OUTPUT_LOW_DURATION_MICROS 18
 
-//X0..X7 pins are the inputs in the MSX, so they will be our OUTPUTS here
-const int TOTAL_X_PINS = 8;
+
+#ifdef USE_C0_WORKAROUND_2
+//the interrupt happens way before with this workaround, no need to take 4us
+  #define COLUMN_DELAY_0 OUTPUT_LOW_DURATION_MICROS 
+#else
+// there is a delay to turn on the first column of 3.5us so we leave it on for less
+  #define COLUMN_DELAY_0 OUTPUT_LOW_DURATION_MICROS - 4
+#endif
+#define COLUMN_DELAY_1 OUTPUT_LOW_DURATION_MICROS
+// -1 to correct deviation on latest rows
+#define COLUMN_DELAY_2 OUTPUT_LOW_DURATION_MICROS-1
+#define COLUMN_DELAY_3 OUTPUT_LOW_DURATION_MICROS
+#define COLUMN_DELAY_4 OUTPUT_LOW_DURATION_MICROS-1
+#define COLUMN_DELAY_5 OUTPUT_LOW_DURATION_MICROS
+#define COLUMN_DELAY_6 OUTPUT_LOW_DURATION_MICROS-1
+#define COLUMN_DELAY_7 OUTPUT_LOW_DURATION_MICROS-1
+#define COLUMN_DELAY_8 OUTPUT_LOW_DURATION_MICROS
+
+
+
+
 //each bit of a column is a row status. 0 means key pressed
 byte COLUMN_STATUS[9] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-const byte COLUMN_DELAYS[9] = {
-#ifdef USE_C0_WORKAROUND_2
-  OUTPUT_LOW_DURATION_MICROS, //the interrupt happens way before on this one
-#else
-OUTPUT_LOW_DURATION_MICROS - 4, // there is a delay to turn on the first column of 3.5us so we leave it on for less
-#endif
-  OUTPUT_LOW_DURATION_MICROS,
-  OUTPUT_LOW_DURATION_MICROS-1, // -1 to correct deviation on latest rows
-  OUTPUT_LOW_DURATION_MICROS,
-  OUTPUT_LOW_DURATION_MICROS-1,
-  OUTPUT_LOW_DURATION_MICROS,
-  OUTPUT_LOW_DURATION_MICROS-1,
-  OUTPUT_LOW_DURATION_MICROS-1,
-  OUTPUT_LOW_DURATION_MICROS};
+unsigned long last_interrupt_time;
+unsigned long last_update_time;
+unsigned long current_time;
+CircularBuffer<byte, 100> event_buffer; //a totally overkill solution to a non existent problem I want to solve.
+Set current_keys_in_status; //another example of over engineering. We keep track which keys we are sending at each time
+PS2Keyboard keyboard; // this is where we read from the PS2 keyboard
+
+//variables used in the loop
+byte current_event;
 
 #ifdef USE_C0_WORKAROUND_1
 // This is a workaround to set the first column status a few milliseconds BEFORE the interrupt triggers
-unsigned long time_since_interrupt;
-const unsigned long PRE_SET_COLUMN_0_TIME = 18; // we know the interrupt occurs every 20ms, so we set column 0 after 18 since the last run.
+unsigned long w1_last_interrupt_time; //to keep track when we last ran the workaround
+const unsigned long PRE_SET_COLUMN_0_TIME = 1000/DISPLAY_REFRESH_RATE - 3; //3ms before the interrupt
 #endif
 
-
-// DEMO VARIABLES
-// lets press and release each button at least once
-unsigned long time_since_event;
-byte demo_events[TOTAL_Y_PINS];
-byte current_column; //Y0..Y8
-byte current_row; //(X0..X7)
-const int ledPin =  LED_BUILTIN;
-int ledState = LOW;
-bool buttonPressed = false;
-unsigned long current_time;
-unsigned long delay_time;
-byte event;
 
 void reading_process_started(){
   // loop unroll optimization...
 #ifdef USE_C0_WORKAROUND_2
 // connect Y8 to the interrupt pin. thos pinm goes low for 98us
 //before the keyboard matrix is scanned
+//TODO: fix so it doesn´t fire again until next refresh
   delayMicroseconds(94); // set the pin around 98us after the interrupt (94+4)
 #endif
   
@@ -74,30 +85,29 @@ void reading_process_started(){
 // but if the workaround is disabled, you need to set it here
   PORTC = COLUMN_STATUS[0];
 #endif
-  delayMicroseconds(COLUMN_DELAYS[0]);
+  delayMicroseconds(COLUMN_DELAY_0);
   PORTC = COLUMN_STATUS[1];
-  delayMicroseconds(COLUMN_DELAYS[1]);
+  delayMicroseconds(COLUMN_DELAY_1);
   PORTC = COLUMN_STATUS[2];
-  delayMicroseconds(COLUMN_DELAYS[2]);
+  delayMicroseconds(COLUMN_DELAY_2);
   PORTC = COLUMN_STATUS[3];
-  delayMicroseconds(COLUMN_DELAYS[3]);
+  delayMicroseconds(COLUMN_DELAY_3);
   PORTC = COLUMN_STATUS[4];
-  delayMicroseconds(COLUMN_DELAYS[4]);
+  delayMicroseconds(COLUMN_DELAY_4);
   PORTC = COLUMN_STATUS[5];
-  delayMicroseconds(COLUMN_DELAYS[5]);
+  delayMicroseconds(COLUMN_DELAY_5);
   PORTC = COLUMN_STATUS[6];
-  delayMicroseconds(COLUMN_DELAYS[6]);
+  delayMicroseconds(COLUMN_DELAY_6);
   PORTC = COLUMN_STATUS[7];
-  delayMicroseconds(COLUMN_DELAYS[7]);
+  delayMicroseconds(COLUMN_DELAY_7);
   PORTC = COLUMN_STATUS[8];
-  delayMicroseconds(COLUMN_DELAYS[8]);
-  
-  //PORTC = COLUMN_STATUS[0]; // leave column 0 pressed, so it can read it when the interrupt starts
-  PORTC = 0xff; // prevents weird chars?
+  delayMicroseconds(COLUMN_DELAY_8);
 
+  PORTC = 0xff; // release everything. To truly simulate the matrix
+  last_interrupt_time = millis();
 #ifdef USE_C0_WORKAROUND_1
   //this workaround allows us to set the COLUMN 0 a few milliseconds before the interrupt fires again
-  time_since_interrupt = millis();
+  w1_last_interrupt_time = last_interrupt_time;
 #endif
 }
 
@@ -114,75 +124,51 @@ void setup() {
     DDRC = 0xFF; // PORTC (10 to 18 in teensy++ 2.0) is output
     PORTC = 0xFF; // write high on all ports
 
-    delay(10000);
     // finally, enable the interrupt and start simulating the keyboard
     attachInterrupt(digitalPinToInterrupt(MAT_INT_PIN), reading_process_started, FALLING);
-    //DEMO CODE
-    // create events for all keys, column by column, row by row
-    time_since_event = millis();
-    
-    current_column = 0;
-    current_row = 0;
-    
-    pinMode(ledPin, OUTPUT);
-    digitalWrite(ledPin, ledState);
 
+    // now initialize the keyboard library
+    keyboard.begin(KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN);
 }
 
-// this is mostly a demo
 void loop() {
   current_time = millis();
 
-  if (buttonPressed) {
-    delay_time = 22;
-  } else {
-    delay_time = 1000;
-  }
-  if (current_time - time_since_event > delay_time) {
-    // do new event
-    event = 0xFF;
-    if (!buttonPressed) { //we have to press the button
-      bitClear(event, current_row);
-      // press the button but stay on the same row and column, so we can release later
-      buttonPressed = true;
-    } else { //we are releasing
-      // Set everything high and move to the next row
-      current_row++;
-      buttonPressed = false;
+  // read scancode from PS2 port and store it in the buffer
+  while (keyboard.available()) { //if you COULD press keys fast enough, this loop would never end =)
+    if (!event_buffer.isFull()) {
+      event_buffer.push(keyboard.readScanCode());
+    } else {
+      break; //we are losing events. Really? how fast are you typing? this is a world record.
     }
-    COLUMN_STATUS[current_column] = event;
-    time_since_event = current_time;
-    
-    
-    if (current_row >= TOTAL_X_PINS) {
-      current_row = 0;
-      current_column++;
-      if (current_column >= TOTAL_Y_PINS) {
-        current_column = 0;
-        delay(2000); // wait and switch led, so we know we start over
-        // led for demo effect
-        if (ledState == LOW) {
-          ledState = HIGH;
-        } else {
-          ledState = LOW;
-        }
-    
-        // set the LED with the ledState of the variable:
-        digitalWrite(ledPin, ledState);
-      }
-    }
-    
   }
 
+  // check if the MSX has read the previous status already. Otherwise continue
+  if (last_interrupt_time > last_update_time) {
+    // there was an update so we can start over processing keys
+    current_keys_in_status.clear();
+    //take the first item from the FIFO
+    while (!event_buffer.isEmpty()) {
+      if (!current_keys_in_status.has(event_buffer.first())){
+        current_event = event_buffer.shift();
+        // map from the scancode to an actual status.
+
+        // set the status        
+      
+      } else {
+        // this key already has pending events to be processed. Finish this now to respect the event ordering.
+        break;
+      }
+    }
+    last_update_time = current_time;
+  }
 #ifdef USE_C0_WORKAROUND_1
   //noInterrupts();
-  if (current_time - time_since_interrupt > PRE_SET_COLUMN_0_TIME) {
-    //we know the interrupt will fire in about 2ms, so lets set PORTC
+  if (current_time - w1_last_interrupt_time > PRE_SET_COLUMN_0_TIME) {
+    //we know the interrupt will fire in about 3ms, so lets set PORTC with the latest updates
     PORTC = COLUMN_STATUS[0];
-    time_since_interrupt = current_time; // prevent refiring this again until next real interrupt
+    w1_last_interrupt_time = current_time; // prevent refiring this again until next real interrupt
   }
   //interrupts();
 #endif
-  
-
 }
