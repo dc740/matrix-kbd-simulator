@@ -1,6 +1,10 @@
+
+#include "ps2_Keyboard.h"
+//#include "ps2_AnsiTranslator.h" //we need our custom translator
+#include "ps2_SimpleDiagnostics.h"
 #include <CircularBuffer.h>
-#include <PS2Keyboard.h>
 #include <set.h>
+#include <avr/sleep.h>
 
 //select only one of these
 #define USE_C0_WORKAROUND_1 //set c0 2ms before the interrupt
@@ -9,6 +13,7 @@
 #define DISPLAY_REFRESH_RATE 50
 #define KEYBOARD_DATA_PIN 20
 #define KEYBOARD_INT_PIN 19
+#define KEYBOARD_INTERNAL_BUFFER_SIZE 16
 /*
  * WORKAROUNDS DESCRIPTION
  * 1) set the fist column status 2ms before the interrupt fires
@@ -59,7 +64,6 @@ unsigned long last_update_time;
 unsigned long current_time;
 CircularBuffer<byte, 100> event_buffer; //a totally overkill solution to a non existent problem I want to solve.
 Set current_keys_in_status; //another example of over engineering. We keep track which keys we are sending at each time
-PS2Keyboard keyboard; // this is where we read from the PS2 keyboard
 
 //variables used in the loop
 byte current_event;
@@ -70,6 +74,23 @@ unsigned long w1_last_interrupt_time; //to keep track when we last ran the worka
 const unsigned long PRE_SET_COLUMN_0_TIME = 1000/DISPLAY_REFRESH_RATE - 3; //3ms before the interrupt
 #endif
 
+//PS2 keyboard related variables
+static ps2::NullDiagnostics diagnostics;
+//static ps2::AnsiTranslator<ps2::NullDiagnostics> keyMapping(diagnostics);  we are using a custom one
+static ps2::Keyboard<KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN, KEYBOARD_INTERNAL_BUFFER_SIZE, ps2::NullDiagnostics> ps2Keyboard(diagnostics);
+static ps2::KeyboardLeds lastLedSent = ps2::KeyboardLeds::none;
+
+/**
+* this is as close as we can get to a shutdown, so we don´t use energy when the keyboard is not connected
+*/
+void poweroff() {
+  detachInterrupt(digitalPinToInterrupt(KEYBOARD_INT_PIN));
+  detachInterrupt(digitalPinToInterrupt(MAT_INT_PIN));
+  noInterrupts(); //I don´t know if this is working honestly.
+  sleep_enable();
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_cpu();
+;}
 
 void reading_process_started(){
   // loop unroll optimization...
@@ -128,7 +149,16 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(MAT_INT_PIN), reading_process_started, FALLING);
 
     // now initialize the keyboard library
-    keyboard.begin(KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN);
+    //keyboard.begin(KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN);
+    ps2Keyboard.begin();
+    keyMapping.setNumLock(true);
+    if (!ps2Keyboard.awaitStartup()) { //if the keyboard fails to start, just shut down
+        noInterrupts();
+        
+    }
+    diagnostics.reset();
+    ps2Keyboard.sendLedStatus(ps2::KeyboardLeds::numLock);
+    lastLedSent = ps2::KeyboardLeds::numLock;
 }
 
 void loop() {
