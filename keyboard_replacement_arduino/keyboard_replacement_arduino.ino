@@ -1,6 +1,7 @@
 
 #include "ps2_Keyboard.h"
 //#include "ps2_AnsiTranslator.h" //we need our custom translator
+#include "PS2ToMSXTranslator.h"
 #include "ps2_SimpleDiagnostics.h"
 #include <CircularBuffer.h>
 #include <set.h>
@@ -62,11 +63,11 @@ byte COLUMN_STATUS[9] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 unsigned long last_interrupt_time;
 unsigned long last_update_time;
 unsigned long current_time;
-CircularBuffer<byte, 100> event_buffer; //a totally overkill solution to a non existent problem I want to solve.
+CircularBuffer<ps2::KeyboardOutput, 100> event_buffer; //a totally overkill solution to a non existent problem I want to solve.
 Set current_keys_in_status; //another example of over engineering. We keep track which keys we are sending at each time
 
 //variables used in the loop
-byte current_event;
+ps2::KeyboardOutput current_event;
 
 #ifdef USE_C0_WORKAROUND_1
 // This is a workaround to set the first column status a few milliseconds BEFORE the interrupt triggers
@@ -75,8 +76,10 @@ const unsigned long PRE_SET_COLUMN_0_TIME = 1000/DISPLAY_REFRESH_RATE - 3; //3ms
 #endif
 
 //PS2 keyboard related variables
+//typedef ps2::SimpleDiagnostics<254> Diagnostics_;
+//static Diagnostics_ diagnostics;
 static ps2::NullDiagnostics diagnostics;
-//static ps2::AnsiTranslator<ps2::NullDiagnostics> keyMapping(diagnostics);  we are using a custom one
+static ps2::PS2ToMSXTranslator keyMapping;  //we are using a custom one. Also, I hate how you call constructors in this language. Rust FTW
 static ps2::Keyboard<KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN, KEYBOARD_INTERNAL_BUFFER_SIZE, ps2::NullDiagnostics> ps2Keyboard(diagnostics);
 static ps2::KeyboardLeds lastLedSent = ps2::KeyboardLeds::none;
 
@@ -136,7 +139,7 @@ void setup() {
     //setup inputs (we only need one MAT_INT_PIN. the rest are for the logic analyzer
     //pinMode(MAT_INT_PIN, INPUT_PULLUP);
     //this port is where the interrupt comes    
-    DDRD = 0x0; // PORTD (0 to 7 in teensy++ 2.0) is input
+    DDRD = 0x0 | 1<<6; // PORTD (0 to 7 in teensy++ 2.0) is input. port 6 is the LED. Don´t use it.
     PORTD = 0xFF; // pullup
     pinMode(8, INPUT_PULLUP); //E0
 
@@ -156,7 +159,7 @@ void setup() {
         noInterrupts();
         
     }
-    diagnostics.reset();
+    //diagnostics.reset(); we don´t use diagnostics, so we can´t reset
     ps2Keyboard.sendLedStatus(ps2::KeyboardLeds::numLock);
     lastLedSent = ps2::KeyboardLeds::numLock;
 }
@@ -165,13 +168,20 @@ void loop() {
   current_time = millis();
 
   // read scancode from PS2 port and store it in the buffer
-  while (keyboard.available()) { //if you COULD press keys fast enough, this loop would never end =)
+
+  ps2::KeyboardOutput scanCode = ps2Keyboard.readScanCode();
+  if (scanCode == ps2::KeyboardOutput::garbled) {
+      keyMapping.reset();
+  }
+  else if (scanCode != ps2::KeyboardOutput::none)
+  {  
     if (!event_buffer.isFull()) {
-      event_buffer.push(keyboard.readScanCode());
+      event_buffer.push(scanCode);
     } else {
-      break; //we are losing events. Really? how fast are you typing? this is a world record.
+      //we are losing events. Really? how fast are you typing? this is a world record.
     }
   }
+
 
   // check if the MSX has read the previous status already. Otherwise continue
   if (last_interrupt_time > last_update_time) {
@@ -179,12 +189,18 @@ void loop() {
     current_keys_in_status.clear();
     //take the first item from the FIFO
     while (!event_buffer.isEmpty()) {
-      if (!current_keys_in_status.has(event_buffer.first())){
+      if (!current_keys_in_status.has(event_buffer.first())){ // this wont work. the set only supports unit8.  Crap, I have to change this.
         current_event = event_buffer.shift();
-        // map from the scancode to an actual status.
-
-        // set the status        
-      
+        msx_key = keyMapping.translatePs2Keycode(current_event)
+        // the event already has the column and row in the last and first 8 bits
+        byte column = COLUMN_FROM_EVENT(msx_key);
+        byte row = ROW_FROM_EVENT(msx_key);
+        // set the status.. 
+        if current_event.isUnmake() {
+          bitSet(COLUMN_STATUS[column], row); //key release
+        } else {
+          bitClear(COLUMN_STATUS[column], row); //key press
+        }
       } else {
         // this key already has pending events to be processed. Finish this now to respect the event ordering.
         break;
