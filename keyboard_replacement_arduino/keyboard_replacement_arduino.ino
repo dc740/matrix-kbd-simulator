@@ -55,7 +55,7 @@
 #define COLUMN_DELAY_7 OUTPUT_LOW_DURATION_MICROS-1
 #define COLUMN_DELAY_8 OUTPUT_LOW_DURATION_MICROS
 
-
+#define COLUMN_ROW_INDEX(c,r) (c+TOTAL_Y_PINS*r)
 
 
 //each bit of a column is a row status. 0 means key pressed
@@ -189,17 +189,20 @@ void loop() {
     current_keys_in_status.clear();
     //take the first item from the FIFO
     while (!event_buffer.isEmpty()) {
-      if (!current_keys_in_status.has(event_buffer.first())){ // this wont work. the set only supports unit8.  Crap, I have to change this.
+      current_event = event_buffer.first();
+      uint16_t msx_key = keyMapping.translatePs2Keycode(current_event);
+      // the event already has the column and row in the last and first 8 bits
+      byte column = COLUMN_FROM_EVENT(msx_key);
+      byte row = ROW_FROM_EVENT(msx_key);
+      byte key_hash = COLUMN_ROW_INDEX(column,row);
+      if (!current_keys_in_status.has(key_hash)){ // this wont work. the set only supports unit8.  Crap, I have to change this.
         current_event = event_buffer.shift();
-        msx_key = keyMapping.translatePs2Keycode(current_event)
-        // the event already has the column and row in the last and first 8 bits
-        byte column = COLUMN_FROM_EVENT(msx_key);
-        byte row = ROW_FROM_EVENT(msx_key);
+        current_keys_in_status.add(key_hash);
         // set the status.. 
-        if current_event.isUnmake() {
-          bitSet(COLUMN_STATUS[column], row); //key release
-        } else {
+        if (msx_key & ps2::KeyCode::PS2_PRESS) { //check status of the last translation  in the KeyCode::PS2_MODIFIERS part of the event
           bitClear(COLUMN_STATUS[column], row); //key press
+        } else {
+          bitSet(COLUMN_STATUS[column], row); //key release
         }
       } else {
         // this key already has pending events to be processed. Finish this now to respect the event ordering.
