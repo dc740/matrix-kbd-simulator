@@ -9,15 +9,12 @@
 //#define USE_C0_WORKAROUND_2 //set c0 98us after Y8 goes down (glitch or something?)
 
 #define DISPLAY_REFRESH_RATE 50
-/*
-Teensy++ 2.0
+
+//Teensy++ 2.0
 #define KEYBOARD_DATA_PIN 20
 #define KEYBOARD_INT_PIN 19
-*/
-// Teensy 3.0
-#define KEYBOARD_DATA_PIN 2
-#define KEYBOARD_INT_PIN 3
-#define KEYBOARD_INTERNAL_BUFFER_SIZE 16
+
+
 /*
  * WORKAROUNDS DESCRIPTION
  * 1) set the fist column status 2ms before the interrupt fires
@@ -140,11 +137,6 @@ void reading_process_started(){
 }
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
-  Serial.begin(9600);
-  Serial.print("starting up");
-  digitalWrite(LED_BUILTIN, LOW);
-  /*
     //setup inputs (we only need one MAT_INT_PIN. the rest are for the logic analyzer
     //pinMode(MAT_INT_PIN, INPUT_PULLUP);
     //this port is where the interrupt comes    
@@ -159,7 +151,7 @@ void setup() {
 
     // finally, enable the interrupt and start simulating the keyboard
     attachInterrupt(digitalPinToInterrupt(MAT_INT_PIN), reading_process_started, FALLING);
-*/
+
     // now initialize the keyboard library
     keyboard.begin( KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN );
     keyboard.echo( );              // ping keyboard to see if there
@@ -167,19 +159,19 @@ void setup() {
     scanCode = keyboard.read( );
     if( (scanCode & 0xFF) == PS2_KEY_ECHO 
         || (scanCode & 0xFF) == PS2_KEY_BAT ) {
-      Serial.println( "Keyboard OK.." );    // Response was Echo or power up
+      //Serial.println( "Keyboard OK.." );    // Response was Echo or power up
         }
     else {
-      if( ( scanCode & 0xFF ) == 0 )
-        Serial.println( "Keyboard Not Found" );
+      if( ( scanCode & 0xFF ) == 0 ){
+        //Serial.println( "Keyboard Not Found" );
+      }
       else
         {
-        Serial.print( "Invalid Code received of " );
-        Serial.println( scanCode, HEX );
+        //Serial.print( "Invalid Code received of " );
+        //Serial.println( scanCode, HEX );
         }
-        //poweroff(); in release mode we would do this
+        poweroff(); // in release mode we would do this
     }
-    keyboard.setNoRepeat(1);
 }
 
 void loop() {
@@ -187,10 +179,10 @@ void loop() {
 
   // read scancode from PS2 port and store it in the buffer
 
-  if( keyboard.available( ) )
+  if(( scanCode = keyboard.read( ) ))
   {
   // read the next key
-    scanCode = keyboard.read( );
+    
     if (!event_buffer.isFull()) {
       event_buffer.push(scanCode);
     } else {
@@ -200,13 +192,18 @@ void loop() {
 
 
   // check if the MSX has read the previous status already. Otherwise continue
-  //if (last_interrupt_time > last_update_time) {
+  if (last_interrupt_time > last_update_time) {
     // there was an update so we can start over processing keys
     current_keys_in_status.clear();
     //take the first item from the FIFO
     while (!event_buffer.isEmpty()) {
       current_event = event_buffer.first();
       uint8_t msx_key = translateEventToMatrix(current_event);
+      if (msx_key == 0xFF) {
+          //invalid key. There is no representation for the MSX
+          event_buffer.shift(); 
+          break; 
+      }
       /*
       anti-typematic code. If typematic fills the event_buffer
       it could potentially slow down the queue. Better drop
@@ -222,17 +219,10 @@ void loop() {
           break; //and skip any more calculations. They are not needed
         }
       }
+      
       // the event already has the column and row in the last and first 8 bits
       byte column = COLUMN_FROM_EVENT(msx_key);
       byte row = ROW_FROM_EVENT(msx_key);
-        Serial.print(current_event, HEX);
-        Serial.print("h\n");
-        Serial.print(column);
-        Serial.print("\n");
-        Serial.print(row);
-        Serial.print("\n");
-        Serial.print(msx_key, HEX);
-        Serial.print("h\n");
       if (!current_keys_in_status.has(msx_key)){
         event_buffer.shift();
         current_keys_in_status.add(msx_key);
@@ -252,7 +242,7 @@ void loop() {
       }
     }
     last_update_time = current_time;
-  //}
+  }
 #ifdef USE_C0_WORKAROUND_1
   //noInterrupts();
   if (current_time - w1_last_interrupt_time > PRE_SET_COLUMN_0_TIME) {
