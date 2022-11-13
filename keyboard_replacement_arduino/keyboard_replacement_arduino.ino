@@ -1,8 +1,5 @@
-
-#include "ps2_Keyboard.h"
-//#include "ps2_AnsiTranslator.h" //we need our custom translator
+#include <PS2KeyAdvanced.h>
 #include "PS2ToMSXTranslator.h"
-#include "ps2_SimpleDiagnostics.h"
 #include <CircularBuffer.h>
 #include <set.h>
 #include <avr/sleep.h>
@@ -12,8 +9,14 @@
 //#define USE_C0_WORKAROUND_2 //set c0 98us after Y8 goes down (glitch or something?)
 
 #define DISPLAY_REFRESH_RATE 50
+/*
+Teensy++ 2.0
 #define KEYBOARD_DATA_PIN 20
 #define KEYBOARD_INT_PIN 19
+*/
+// Teensy 3.0
+#define KEYBOARD_DATA_PIN 2
+#define KEYBOARD_INT_PIN 3
 #define KEYBOARD_INTERNAL_BUFFER_SIZE 16
 /*
  * WORKAROUNDS DESCRIPTION
@@ -63,11 +66,9 @@ byte COLUMN_STATUS[9] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 unsigned long last_interrupt_time;
 unsigned long last_update_time;
 unsigned long current_time;
-CircularBuffer<ps2::KeyboardOutput, 100> event_buffer; //a totally overkill solution to a non existent problem I want to solve.
+CircularBuffer<uint16_t, 100> event_buffer; //a totally overkill solution to a non existent problem I want to solve.
 Set current_keys_in_status; //another example of over engineering. We keep track which keys we are sending at each time
 
-//variables used in the loop
-ps2::KeyboardOutput current_event;
 
 #ifdef USE_C0_WORKAROUND_1
 // This is a workaround to set the first column status a few milliseconds BEFORE the interrupt triggers
@@ -76,12 +77,10 @@ const unsigned long PRE_SET_COLUMN_0_TIME = 1000/DISPLAY_REFRESH_RATE - 3; //3ms
 #endif
 
 //PS2 keyboard related variables
-//typedef ps2::SimpleDiagnostics<254> Diagnostics_;
-//static Diagnostics_ diagnostics;
-static ps2::NullDiagnostics diagnostics;
-static ps2::PS2ToMSXTranslator keyMapping;  //we are using a custom one. Also, I hate how you call constructors in this language. Rust FTW
-static ps2::Keyboard<KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN, KEYBOARD_INTERNAL_BUFFER_SIZE, ps2::NullDiagnostics> ps2Keyboard(diagnostics);
-static ps2::KeyboardLeds lastLedSent = ps2::KeyboardLeds::none;
+PS2KeyAdvanced keyboard;
+uint16_t scanCode;
+uint16_t current_event;
+uint8_t lastPressedKey; // manually disable typematic. Lets ignore repeated presses (without release) of the last key
 
 /**
 * this is as close as we can get to a shutdown, so we don´t use energy when the keyboard is not connected
@@ -89,10 +88,15 @@ static ps2::KeyboardLeds lastLedSent = ps2::KeyboardLeds::none;
 void poweroff() {
   detachInterrupt(digitalPinToInterrupt(KEYBOARD_INT_PIN));
   detachInterrupt(digitalPinToInterrupt(MAT_INT_PIN));
-  noInterrupts(); //I don´t know if this is working honestly.
-  sleep_enable();
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(2000);
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(2000);
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  cli();                         //stop interrupts to ensure the BOD timed sequence executes as required
+  sleep_enable();
   sleep_cpu();
+  digitalWrite(LED_BUILTIN, HIGH);
 ;}
 
 void reading_process_started(){
@@ -136,6 +140,11 @@ void reading_process_started(){
 }
 
 void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.begin(9600);
+  Serial.print("starting up");
+  digitalWrite(LED_BUILTIN, LOW);
+  /*
     //setup inputs (we only need one MAT_INT_PIN. the rest are for the logic analyzer
     //pinMode(MAT_INT_PIN, INPUT_PULLUP);
     //this port is where the interrupt comes    
@@ -150,18 +159,27 @@ void setup() {
 
     // finally, enable the interrupt and start simulating the keyboard
     attachInterrupt(digitalPinToInterrupt(MAT_INT_PIN), reading_process_started, FALLING);
-
+*/
     // now initialize the keyboard library
-    //keyboard.begin(KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN);
-    ps2Keyboard.begin();
-    keyMapping.setNumLock(true);
-    if (!ps2Keyboard.awaitStartup()) { //if the keyboard fails to start, just shut down
-        noInterrupts();
-        
+    keyboard.begin( KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN );
+    keyboard.echo( );              // ping keyboard to see if there
+    delay( 6 );
+    scanCode = keyboard.read( );
+    if( (scanCode & 0xFF) == PS2_KEY_ECHO 
+        || (scanCode & 0xFF) == PS2_KEY_BAT ) {
+      Serial.println( "Keyboard OK.." );    // Response was Echo or power up
+        }
+    else {
+      if( ( scanCode & 0xFF ) == 0 )
+        Serial.println( "Keyboard Not Found" );
+      else
+        {
+        Serial.print( "Invalid Code received of " );
+        Serial.println( scanCode, HEX );
+        }
+        //poweroff(); in release mode we would do this
     }
-    //diagnostics.reset(); we don´t use diagnostics, so we can´t reset
-    ps2Keyboard.sendLedStatus(ps2::KeyboardLeds::numLock);
-    lastLedSent = ps2::KeyboardLeds::numLock;
+    keyboard.setNoRepeat(1);
 }
 
 void loop() {
@@ -169,12 +187,10 @@ void loop() {
 
   // read scancode from PS2 port and store it in the buffer
 
-  ps2::KeyboardOutput scanCode = ps2Keyboard.readScanCode();
-  if (scanCode == ps2::KeyboardOutput::garbled) {
-      keyMapping.reset();
-  }
-  else if (scanCode != ps2::KeyboardOutput::none)
-  {  
+  if( keyboard.available( ) )
+  {
+  // read the next key
+    scanCode = keyboard.read( );
     if (!event_buffer.isFull()) {
       event_buffer.push(scanCode);
     } else {
@@ -184,33 +200,59 @@ void loop() {
 
 
   // check if the MSX has read the previous status already. Otherwise continue
-  if (last_interrupt_time > last_update_time) {
+  //if (last_interrupt_time > last_update_time) {
     // there was an update so we can start over processing keys
     current_keys_in_status.clear();
     //take the first item from the FIFO
     while (!event_buffer.isEmpty()) {
       current_event = event_buffer.first();
-      uint16_t msx_key = keyMapping.translatePs2Keycode(current_event);
+      uint8_t msx_key = translateEventToMatrix(current_event);
+      /*
+      anti-typematic code. If typematic fills the event_buffer
+      it could potentially slow down the queue. Better drop
+      the repeated events to make sure
+      */
+      uint8_t character = current_event & 0xFF;
+      if (~current_event & 0x8000) {
+        // this a press
+        if (lastPressedKey == character) {
+          // this is a repeated press. The keyboard is in typematic mode
+          event_buffer.shift(); //lets remove the repeated event
+          //are we dropping the original event? no, it happened long ago, many interrupts ago
+          break; //and skip any more calculations. They are not needed
+        }
+      }
       // the event already has the column and row in the last and first 8 bits
       byte column = COLUMN_FROM_EVENT(msx_key);
       byte row = ROW_FROM_EVENT(msx_key);
-      byte key_hash = COLUMN_ROW_INDEX(column,row);
-      if (!current_keys_in_status.has(key_hash)){ // this wont work. the set only supports unit8.  Crap, I have to change this.
-        current_event = event_buffer.shift();
-        current_keys_in_status.add(key_hash);
+        Serial.print(current_event, HEX);
+        Serial.print("h\n");
+        Serial.print(column);
+        Serial.print("\n");
+        Serial.print(row);
+        Serial.print("\n");
+        Serial.print(msx_key, HEX);
+        Serial.print("h\n");
+      if (!current_keys_in_status.has(msx_key)){
+        event_buffer.shift();
+        current_keys_in_status.add(msx_key);
         // set the status.. 
-        if (msx_key & ps2::KeyCode::PS2_PRESS) { //check status of the last translation  in the KeyCode::PS2_MODIFIERS part of the event
-          bitClear(COLUMN_STATUS[column], row); //key press
+        if (current_event & 0x8000) { //check status of the last translation  in the KeyCode::PS2_MODIFIERS part of the event
+          bitSet(COLUMN_STATUS[column], row);
+          lastPressedKey = 0x00; // clear the typematic mechanism
         } else {
-          bitSet(COLUMN_STATUS[column], row); //key release
+          bitClear(COLUMN_STATUS[column], row);
+          lastPressedKey = character;
         }
+
       } else {
         // this key already has pending events to be processed. Finish this now to respect the event ordering.
+
         break;
       }
     }
     last_update_time = current_time;
-  }
+  //}
 #ifdef USE_C0_WORKAROUND_1
   //noInterrupts();
   if (current_time - w1_last_interrupt_time > PRE_SET_COLUMN_0_TIME) {
