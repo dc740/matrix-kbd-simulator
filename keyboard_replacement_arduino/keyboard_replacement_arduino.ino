@@ -80,7 +80,8 @@ uint16_t current_event;
 uint8_t lastPressedKey; // manually disable typematic. Lets ignore repeated presses (without release) of the last key
 
 /**
-* this is as close as we can get to a shutdown, so we don´t use energy when the keyboard is not connected
+* this is as close as we can get to a shutdown, so we don't use energy when the keyboard is not connected.
+* This function does not work for some boards. Works fine on Teensy++ 2.0
 */
 void poweroff() {
   detachInterrupt(digitalPinToInterrupt(KEYBOARD_INT_PIN));
@@ -137,12 +138,21 @@ void reading_process_started(){
 }
 
 void setup() {
+    //Serial.begin(9600);
     //setup inputs (we only need one MAT_INT_PIN. the rest are for the logic analyzer
     //pinMode(MAT_INT_PIN, INPUT_PULLUP);
     //this port is where the interrupt comes    
-    DDRD = 0x0 | 1<<6; // PORTD (0 to 7 in teensy++ 2.0) is input. port 6 is the LED. Don´t use it.
-    PORTD = 0xFF; // pullup
+    //Declare all this here because Iḿ using these to debug. Only MAT_INT_PIN is needed
+    pinMode(0, INPUT_PULLUP); //D0  <<< usually this is MAT_INT_PIN
+    pinMode(1, INPUT_PULLUP); //D1
+    pinMode(2, INPUT_PULLUP); //D2
+    pinMode(3, INPUT_PULLUP); //D3
+    pinMode(4, INPUT_PULLUP); //D4
+    pinMode(5, INPUT_PULLUP); //D5
+    pinMode(6, OUTPUT);       //D6 is the LED_BUILTIN in the teensy++ 2.0
+    pinMode(7, INPUT_PULLUP); //D7 
     pinMode(8, INPUT_PULLUP); //E0
+    pinMode(9, INPUT_PULLUP); //E1
 
     // Lets use the entire PORTC in the teensy
     // These pins trick the MSX so it thinks it's the matrix
@@ -155,11 +165,11 @@ void setup() {
     // now initialize the keyboard library
     keyboard.begin( KEYBOARD_DATA_PIN, KEYBOARD_INT_PIN );
     keyboard.echo( );              // ping keyboard to see if there
-    delay( 6 );
+    delay( 1000 ); // I think 750 is more than enough, so... I wait a second (the MSX is booting anyway)
     scanCode = keyboard.read( );
     if( (scanCode & 0xFF) == PS2_KEY_ECHO 
         || (scanCode & 0xFF) == PS2_KEY_BAT ) {
-      //Serial.println( "Keyboard OK.." );    // Response was Echo or power up
+        //Serial.println( "Keyboard OK.." );    // Response was Echo or power up
         }
     else {
       if( ( scanCode & 0xFF ) == 0 ){
@@ -178,18 +188,14 @@ void loop() {
   current_time = millis();
 
   // read scancode from PS2 port and store it in the buffer
-
   if(( scanCode = keyboard.read( ) ))
   {
-  // read the next key
-    
     if (!event_buffer.isFull()) {
       event_buffer.push(scanCode);
     } else {
       //we are losing events. Really? how fast are you typing? this is a world record.
     }
   }
-
 
   // check if the MSX has read the previous status already. Otherwise continue
   if (last_interrupt_time > last_update_time) {
@@ -227,7 +233,7 @@ void loop() {
         event_buffer.shift();
         current_keys_in_status.add(msx_key);
         // set the status.. 
-        if (current_event & 0x8000) { //check status of the last translation  in the KeyCode::PS2_MODIFIERS part of the event
+        if (current_event & 0x8000) { //check status of the last translation
           bitSet(COLUMN_STATUS[column], row);
           lastPressedKey = 0x00; // clear the typematic mechanism
         } else {
@@ -237,7 +243,6 @@ void loop() {
 
       } else {
         // this key already has pending events to be processed. Finish this now to respect the event ordering.
-
         break;
       }
     }
