@@ -150,6 +150,7 @@ void setup() {
     pinMode(4, INPUT_PULLUP); //D4
     pinMode(5, INPUT_PULLUP); //D5
     pinMode(6, OUTPUT);       //D6 is the LED_BUILTIN in the teensy++ 2.0
+    digitalWrite(6, LOW);
     pinMode(7, INPUT_PULLUP); //D7 
     pinMode(8, INPUT_PULLUP); //E0
     pinMode(9, INPUT_PULLUP); //E1
@@ -188,16 +189,18 @@ void loop() {
   current_time = millis();
 
   // read scancode from PS2 port and store it in the buffer
-  if(( scanCode = keyboard.read( ) ))
-  {
-    if (!event_buffer.isFull()) {
-      event_buffer.push(scanCode);
-    } else {
-      //we are losing events. Really? how fast are you typing? this is a world record.
+  if (current_time - last_interrupt_time  < 15) { // try avoiding calls to keyboard when we are going to be interrupted. Lets see if this fixes anything.
+    while(( scanCode = keyboard.read( ) ))
+    {
+      if (!event_buffer.isFull()) {
+        event_buffer.push(scanCode);
+      } else {
+        //we are losing events. Really? how fast are you typing? this is a world record.
+      }
     }
   }
 
-  // check if the MSX has read the previous status already. Otherwise continue
+  // check if the MSX has read the previous status already. Otherwise skip
   if (last_interrupt_time > last_update_time) {
     // there was an update so we can start over processing keys
     current_keys_in_status.clear();
