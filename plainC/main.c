@@ -408,9 +408,9 @@ void setup(void) {
 
     // Interrupt pins (INT0..7)
     DDRD =  0xF0; // D0..D3 input, the rest output
-    PORTD = 0xF0; // D0..D3 pullup
+    PORTD = 0x0F; // D0..D3 pullup
     DDRE =  0x0F; // E4..E7 input
-    PORTE = 0x0F; // E4..E7 pullup
+    PORTE = 0xF0; // E4..E7 pullup
     
     //This one is Y8, but using a pin change interrupt.
     DDRB = 0xFE; // PB0 input. other output
