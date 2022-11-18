@@ -1,0 +1,1512 @@
+   1               		.file	"main.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__RAMPZ__ = 0x3b
+   6               	__tmp_reg__ = 0
+   7               	__zero_reg__ = 1
+   8               		.text
+   9               	.Ltext0:
+  10               		.cfi_sections	.debug_frame
+  11               	.global	__vector_9
+  13               	__vector_9:
+  14               	.LFB7:
+  15               		.file 1 "main.c"
+   1:main.c        **** /***
+   2:main.c        ****          _______  ______  ____    ______
+   3:main.c        ****         | ____\ \/ /  _ \/ ___|  / /___ \
+   4:main.c        ****         |  _|  \  /| |_) \___ \ / /  __) |
+   5:main.c        ****         | |___ /  \|  __/ ___) / /  / __/
+   6:main.c        ****         |_____/_/\_\_|   |____/_/  |_____|
+   7:main.c        **** 
+   8:main.c        ****        Teclado PS/2 externo para Expert XP800
+   9:main.c        ****        Danjovic 2021 
+  10:main.c        ****        05 april 2021 - basic release
+  11:main.c        **** */
+  12:main.c        **** 
+  13:main.c        **** #include <avr/io.h>
+  14:main.c        **** #include <util/delay.h>
+  15:main.c        **** #include <avr/pgmspace.h>
+  16:main.c        **** #include <avr/interrupt.h>
+  17:main.c        **** #include <stdbool.h>
+  18:main.c        **** 
+  19:main.c        **** #define BIT_DLY_9600   103
+  20:main.c        **** #define BIT_DLY_19200  51
+  21:main.c        **** #define BIT_DLY_38400  25
+  22:main.c        **** #define BIT_DLY_57600  17
+  23:main.c        **** #define BIT_DLY_115200 8
+  24:main.c        **** #define BIT_DELAY      BIT_DLY_9600
+  25:main.c        **** 
+  26:main.c        **** #define DDRUART        DDRB
+  27:main.c        **** #define PORTUART       PORTB
+  28:main.c        **** #define BITUART        4
+  29:main.c        **** 
+  30:main.c        **** 
+  31:main.c        **** #include "msxKeyboardMatrix.h"
+  32:main.c        **** #include "ps2keyMap.h"
+  33:main.c        **** #include "myPS2.h"             // pin definition on the file
+  34:main.c        **** //#include <ps2.h>
+  35:main.c        **** //PS2 kbd(9, 8);
+  36:main.c        **** 
+  37:main.c        **** #define NOP() do { __asm__ __volatile__ ("nop"); } while (0)
+  38:main.c        **** 
+  39:main.c        **** /// Teensy setting
+  40:main.c        **** #if F_CPU == 16000000L
+  41:main.c        **** #define ADC_PRESCALER 0x07
+  42:main.c        **** #define CPU_PRESCALER 0x00
+  43:main.c        **** #elif F_CPU == 8000000L
+  44:main.c        **** #define ADC_PRESCALER 0x06
+  45:main.c        **** #define CPU_PRESCALER 0x01
+  46:main.c        **** #elif F_CPU == 4000000L
+  47:main.c        **** #define ADC_PRESCALER 0x05
+  48:main.c        **** #define CPU_PRESCALER 0x02
+  49:main.c        **** #elif F_CPU == 2000000L
+  50:main.c        **** #define ADC_PRESCALER 0x04
+  51:main.c        **** #define CPU_PRESCALER 0x03
+  52:main.c        **** #elif F_CPU == 1000000L
+  53:main.c        **** #define ADC_PRESCALER 0x03
+  54:main.c        **** #define CPU_PRESCALER 0x04
+  55:main.c        **** #else
+  56:main.c        **** #error "Teensyduino only supports 16, 8, 4, 2, 1 MHz.  Check your settings"
+  57:main.c        **** #endif
+  58:main.c        **** 
+  59:main.c        **** 
+  60:main.c        **** 
+  61:main.c        **** //       _      __ _      _ _   _
+  62:main.c        **** //    __| |___ / _(_)_ _ (_) |_(_)___ _ _  ___
+  63:main.c        **** //   / _` / -_)  _| | ' \| |  _| / _ \ ' \(_-<
+  64:main.c        **** //   \__,_\___|_| |_|_||_|_|\__|_\___/_||_/__/
+  65:main.c        **** //
+  66:main.c        **** #define Keymap_Size 16  // 16 up to lines of keys for Hotbit 
+  67:main.c        ****  
+  68:main.c        **** 
+  69:main.c        **** void printBin ( uint8_t l);
+  70:main.c        **** void printHex ( uint8_t l); 
+  71:main.c        **** void printMatrix(void );
+  72:main.c        **** void softSendByte (uint8_t dado);
+  73:main.c        **** void debug( char *s);
+  74:main.c        **** void initsoftSend(void);
+  75:main.c        **** void updateMatrix(uint8_t k);
+  76:main.c        **** void clearMatrix( void );
+  77:main.c        **** void initalizeKeyboard(void);
+  78:main.c        **** void setup(void);
+  79:main.c        **** void loop(void);
+  80:main.c        **** 
+  81:main.c        **** //                 _      _    _
+  82:main.c        **** //   __ ____ _ _ _(_)__ _| |__| |___ ___
+  83:main.c        **** //   \ V / _` | '_| / _` | '_ \ / -_|_-<
+  84:main.c        **** //    \_/\__,_|_| |_\__,_|_.__/_\___/__/
+  85:main.c        **** //
+  86:main.c        **** 
+  87:main.c        **** static volatile uint8_t cc = 5;
+  88:main.c        **** volatile uint8_t COLUMN_STATUS[9] = {255, 254, 255, 254, 255, 254, 255, 254, 255};
+  89:main.c        **** bool EXT = false;
+  90:main.c        **** bool BRK = false;
+  91:main.c        **** bool SHIFT = false;
+  92:main.c        **** bool LAST_SHIFT = false;
+  93:main.c        **** 
+  94:main.c        **** 
+  95:main.c        **** 
+  96:main.c        **** //    _     _                         _
+  97:main.c        **** //   (_)_ _| |_ ___ _ _ _ _ _  _ _ __| |_ ___
+  98:main.c        **** //   | | ' \  _/ -_) '_| '_| || | '_ \  _(_-<
+  99:main.c        **** //   |_|_||_\__\___|_| |_|  \_,_| .__/\__/__/
+ 100:main.c        **** //                              |_|
+ 101:main.c        **** 
+ 102:main.c        **** 
+ 103:main.c        **** 
+ 104:main.c        **** /*
+ 105:main.c        ****   ISR (PCINT0_vect) { Connected to PB0 as a change bit because we are out of external level interru
+ 106:main.c        ****   DDRC = COLUMN_status [8];
+ 107:main.c        ****   }
+ 108:main.c        **** */
+ 109:main.c        **** volatile uint8_t zero = 0;
+ 110:main.c        **** ISR (PCINT0_vect, ISR_NAKED) {
+  16               		.loc 1 110 0
+  17               		.cfi_startproc
+  18               	/* prologue: naked */
+  19               	/* frame size = 0 */
+  20               	/* stack size = 0 */
+  21               	.L__stack_usage = 0
+ 111:main.c        ****   asm volatile (                     // 7-9  até aqui
+  22               		.loc 1 111 0
+  23               	/* #APP */
+  24               	 ;  111 "main.c" 1
+  25 0000 1FB6      		in __zero_reg__,__SREG__ 
+  26 0002 AABD      		out 42,r26
+  27 0004 BBBD      		out 43,r27
+  28 0006 B0E0      		ldi r27,hi8(COLUMN_STATUS)
+  29 0008 A8B1      		in r26,8 
+  30 000a A050      		subi r26, lo8(-(COLUMN_STATUS)) 
+  31 000c AC91      		ld 26,X 
+  32 000e A8B9      		out 8 ,r26 
+  33 0010 AAB5      		in r26, 42 
+  34 0012 BBB5      		in r27, 43 
+  35 0014 D99A      		sbi 27,1 
+  36 0016 1FBE      		out __SREG__,__zero_reg__ 
+  37 0018 1090 0000 		lds __zero_reg__, zero 
+  38 001c 1895      		reti 
+  39               		
+  40               	 ;  0 "" 2
+  41               	/* epilogue start */
+ 112:main.c        ****     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
+ 113:main.c        ****     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
+ 114:main.c        ****     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+ 115:main.c        ****     
+ 116:main.c        ****     "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+ 117:main.c        ****     "in r26,8 \n\t"           // 1
+ 118:main.c        ****     "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
+ 119:main.c        ****                                      // It performs array indexing by adding a (byte) 
+ 120:main.c        ****                                      // index to the base of the array. Unfortunately
+ 121:main.c        ****                                      // the instruction set lacks immediate addition
+ 122:main.c        ****                                      // so a subtraction of the negative base is used
+ 123:main.c        ****                                      // instead. The full 16-bit addition is pieced
+ 124:main.c        ****                                      // together from separately processing low/high
+ 125:main.c        ****                                      // bytes since the AVR also has limited support
+ 126:main.c        ****                                      // for 16-bit arithmetic (actually there is an
+ 127:main.c        ****                                      // adiw instruction but the range is very limited.) 
+ 128:main.c        ****     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+ 129:main.c        ****     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta B da PPI
+ 130:main.c        ****                                      // até aqui 16 instruções (1us @16Mhz)
+ 131:main.c        ****     "in r26, %[_GPIOR1] \n\t"
+ 132:main.c        ****     "in r27, %[_GPIOR2] \n\t"
+ 133:main.c        **** 
+ 134:main.c        ****     "sbi %[_PCIFR],1 \n\t"           // reset interrupt bit
+ 135:main.c        **** 
+ 136:main.c        ****     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+ 137:main.c        ****     "lds __zero_reg__, zero \n\t"
+ 138:main.c        ****     "reti \n\t"
+ 139:main.c        **** 
+ 140:main.c        ****     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+ 141:main.c        ****     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+ 142:main.c        ****     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+ 143:main.c        ****     [_PCIFR]  "I" (_SFR_IO_ADDR(PCIFR) )
+ 144:main.c        ****     );
+ 145:main.c        **** 
+ 146:main.c        **** };
+  42               		.loc 1 146 0
+  43               	/* #NOAPP */
+  44               		.cfi_endproc
+  45               	.LFE7:
+  47               	.global	__vector_1
+  49               	__vector_1:
+  50               	.LFB8:
+ 147:main.c        **** 
+ 148:main.c        **** // COLUMN_STATUS[0]
+ 149:main.c        **** ISR (INT0_vect, ISR_NAKED) {
+  51               		.loc 1 149 0
+  52               		.cfi_startproc
+  53               	/* prologue: naked */
+  54               	/* frame size = 0 */
+  55               	/* stack size = 0 */
+  56               	.L__stack_usage = 0
+ 150:main.c        ****   asm volatile (                     // 7-9  até aqui
+  57               		.loc 1 150 0
+  58               	/* #APP */
+  59               	 ;  150 "main.c" 1
+  60 001e 1FB6      		in __zero_reg__,__SREG__ 
+  61 0020 AABD      		out 42,r26
+  62 0022 BBBD      		out 43,r27
+  63 0024 B0E0      		ldi r27,hi8(COLUMN_STATUS)
+  64 0026 A0B1      		in r26,0 
+  65 0028 A050      		subi r26, lo8(-(COLUMN_STATUS)) 
+  66 002a AC91      		ld 26,X 
+  67 002c A8B9      		out 8 ,r26 
+  68 002e AAB5      		in r26, 42 
+  69 0030 BBB5      		in r27, 43 
+  70 0032 E19A      		sbi 28,1 
+  71 0034 1FBE      		out __SREG__,__zero_reg__ 
+  72 0036 1090 0000 		lds __zero_reg__, zero 
+  73 003a 1895      		reti 
+  74               		
+  75               	 ;  0 "" 2
+  76               	/* epilogue start */
+ 151:main.c        ****     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
+ 152:main.c        ****     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
+ 153:main.c        ****     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+ 154:main.c        ****     
+ 155:main.c        ****     "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+ 156:main.c        ****     "in r26,0 \n\t"           // 1  add 0 since this is the first vector
+ 157:main.c        ****     "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
+ 158:main.c        ****                                      // It performs array indexing by adding a (byte) 
+ 159:main.c        ****                                      // index to the base of the array. Unfortunately
+ 160:main.c        ****                                      // the instruction set lacks immediate addition
+ 161:main.c        ****                                      // so a subtraction of the negative base is used
+ 162:main.c        ****                                      // instead. The full 16-bit addition is pieced
+ 163:main.c        ****                                      // together from separately processing low/high
+ 164:main.c        ****                                      // bytes since the AVR also has limited support
+ 165:main.c        ****                                      // for 16-bit arithmetic (actually there is an
+ 166:main.c        ****                                      // adiw instruction but the range is very limited.) 
+ 167:main.c        ****     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+ 168:main.c        ****     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta B da PPI
+ 169:main.c        ****                                      // até aqui 16 instruções (1us @16Mhz)
+ 170:main.c        ****     "in r26, %[_GPIOR1] \n\t"
+ 171:main.c        ****     "in r27, %[_GPIOR2] \n\t"
+ 172:main.c        **** 
+ 173:main.c        ****     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+ 174:main.c        **** 
+ 175:main.c        ****     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+ 176:main.c        ****     "lds __zero_reg__, zero \n\t"
+ 177:main.c        ****     "reti \n\t"
+ 178:main.c        **** 
+ 179:main.c        ****     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+ 180:main.c        ****     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+ 181:main.c        ****     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+ 182:main.c        ****     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
+ 183:main.c        ****     );
+ 184:main.c        **** 
+ 185:main.c        **** };
+  77               		.loc 1 185 0
+  78               	/* #NOAPP */
+  79               		.cfi_endproc
+  80               	.LFE8:
+  82               	.global	__vector_2
+  84               	__vector_2:
+  85               	.LFB9:
+ 186:main.c        **** 
+ 187:main.c        **** // COLUMN_STATUS[1]
+ 188:main.c        **** ISR (INT1_vect, ISR_NAKED) {
+  86               		.loc 1 188 0
+  87               		.cfi_startproc
+  88               	/* prologue: naked */
+  89               	/* frame size = 0 */
+  90               	/* stack size = 0 */
+  91               	.L__stack_usage = 0
+ 189:main.c        ****   asm volatile (                     // 7-9  até aqui
+  92               		.loc 1 189 0
+  93               	/* #APP */
+  94               	 ;  189 "main.c" 1
+  95 003c 1FB6      		in __zero_reg__,__SREG__ 
+  96 003e AABD      		out 42,r26
+  97 0040 BBBD      		out 43,r27
+  98 0042 B0E0      		ldi r27,hi8(COLUMN_STATUS)
+  99 0044 A1B1      		in r26,1 
+ 100 0046 A050      		subi r26, lo8(-(COLUMN_STATUS)) 
+ 101 0048 AC91      		ld 26,X 
+ 102 004a A8B9      		out 8 ,r26 
+ 103 004c AAB5      		in r26, 42 
+ 104 004e BBB5      		in r27, 43 
+ 105 0050 E19A      		sbi 28,1 
+ 106 0052 1FBE      		out __SREG__,__zero_reg__ 
+ 107 0054 1090 0000 		lds __zero_reg__, zero 
+ 108 0058 1895      		reti 
+ 109               		
+ 110               	 ;  0 "" 2
+ 111               	/* epilogue start */
+ 190:main.c        ****     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
+ 191:main.c        ****     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
+ 192:main.c        ****     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+ 193:main.c        ****     
+ 194:main.c        ****     "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+ 195:main.c        ****     "in r26,1 \n\t"           // 1  add 0 since this is the first vector
+ 196:main.c        ****     "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
+ 197:main.c        ****                                      // It performs array indexing by adding a (byte) 
+ 198:main.c        ****                                      // index to the base of the array. Unfortunately
+ 199:main.c        ****                                      // the instruction set lacks immediate addition
+ 200:main.c        ****                                      // so a subtraction of the negative base is used
+ 201:main.c        ****                                      // instead. The full 16-bit addition is pieced
+ 202:main.c        ****                                      // together from separately processing low/high
+ 203:main.c        ****                                      // bytes since the AVR also has limited support
+ 204:main.c        ****                                      // for 16-bit arithmetic (actually there is an
+ 205:main.c        ****                                      // adiw instruction but the range is very limited.) 
+ 206:main.c        ****     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+ 207:main.c        ****     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
+ 208:main.c        ****                                      // até aqui 16 instruções (1us @16Mhz)
+ 209:main.c        ****     "in r26, %[_GPIOR1] \n\t"
+ 210:main.c        ****     "in r27, %[_GPIOR2] \n\t"
+ 211:main.c        **** 
+ 212:main.c        ****     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+ 213:main.c        **** 
+ 214:main.c        ****     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+ 215:main.c        ****     "lds __zero_reg__, zero \n\t"
+ 216:main.c        ****     "reti \n\t"
+ 217:main.c        **** 
+ 218:main.c        ****     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+ 219:main.c        ****     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+ 220:main.c        ****     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+ 221:main.c        ****     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
+ 222:main.c        ****     );
+ 223:main.c        **** 
+ 224:main.c        **** };
+ 112               		.loc 1 224 0
+ 113               	/* #NOAPP */
+ 114               		.cfi_endproc
+ 115               	.LFE9:
+ 117               	.global	__vector_3
+ 119               	__vector_3:
+ 120               	.LFB10:
+ 225:main.c        **** // COLUMN_STATUS[2]
+ 226:main.c        **** ISR (INT2_vect, ISR_NAKED) {
+ 121               		.loc 1 226 0
+ 122               		.cfi_startproc
+ 123               	/* prologue: naked */
+ 124               	/* frame size = 0 */
+ 125               	/* stack size = 0 */
+ 126               	.L__stack_usage = 0
+ 227:main.c        ****   asm volatile (                     // 7-9  até aqui
+ 127               		.loc 1 227 0
+ 128               	/* #APP */
+ 129               	 ;  227 "main.c" 1
+ 130 005a 1FB6      		in __zero_reg__,__SREG__ 
+ 131 005c AABD      		out 42,r26
+ 132 005e BBBD      		out 43,r27
+ 133 0060 B0E0      		ldi r27,hi8(COLUMN_STATUS)
+ 134 0062 A2B1      		in r26,2 
+ 135 0064 A050      		subi r26, lo8(-(COLUMN_STATUS)) 
+ 136 0066 AC91      		ld 26,X 
+ 137 0068 A8B9      		out 8 ,r26 
+ 138 006a AAB5      		in r26, 42 
+ 139 006c BBB5      		in r27, 43 
+ 140 006e E19A      		sbi 28,1 
+ 141 0070 1FBE      		out __SREG__,__zero_reg__ 
+ 142 0072 1090 0000 		lds __zero_reg__, zero 
+ 143 0076 1895      		reti 
+ 144               		
+ 145               	 ;  0 "" 2
+ 146               	/* epilogue start */
+ 228:main.c        ****     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
+ 229:main.c        ****     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
+ 230:main.c        ****     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+ 231:main.c        ****     
+ 232:main.c        ****     "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+ 233:main.c        ****     "in r26,2 \n\t"           // 1  add 0 since this is the first vector
+ 234:main.c        ****     "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
+ 235:main.c        ****                                      // It performs array indexing by adding a (byte) 
+ 236:main.c        ****                                      // index to the base of the array. Unfortunately
+ 237:main.c        ****                                      // the instruction set lacks immediate addition
+ 238:main.c        ****                                      // so a subtraction of the negative base is used
+ 239:main.c        ****                                      // instead. The full 16-bit addition is pieced
+ 240:main.c        ****                                      // together from separately processing low/high
+ 241:main.c        ****                                      // bytes since the AVR also has limited support
+ 242:main.c        ****                                      // for 16-bit arithmetic (actually there is an
+ 243:main.c        ****                                      // adiw instruction but the range is very limited.) 
+ 244:main.c        ****     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+ 245:main.c        ****     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
+ 246:main.c        ****                                      // até aqui 16 instruções (1us @16Mhz)
+ 247:main.c        ****     "in r26, %[_GPIOR1] \n\t"
+ 248:main.c        ****     "in r27, %[_GPIOR2] \n\t"
+ 249:main.c        **** 
+ 250:main.c        ****     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+ 251:main.c        **** 
+ 252:main.c        ****     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+ 253:main.c        ****     "lds __zero_reg__, zero \n\t"
+ 254:main.c        ****     "reti \n\t"
+ 255:main.c        **** 
+ 256:main.c        ****     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+ 257:main.c        ****     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+ 258:main.c        ****     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+ 259:main.c        ****     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
+ 260:main.c        ****     );
+ 261:main.c        **** 
+ 262:main.c        **** };
+ 147               		.loc 1 262 0
+ 148               	/* #NOAPP */
+ 149               		.cfi_endproc
+ 150               	.LFE10:
+ 152               	.global	__vector_4
+ 154               	__vector_4:
+ 155               	.LFB11:
+ 263:main.c        **** 
+ 264:main.c        **** // COLUMN_STATUS[3]
+ 265:main.c        **** ISR (INT3_vect, ISR_NAKED) {
+ 156               		.loc 1 265 0
+ 157               		.cfi_startproc
+ 158               	/* prologue: naked */
+ 159               	/* frame size = 0 */
+ 160               	/* stack size = 0 */
+ 161               	.L__stack_usage = 0
+ 266:main.c        ****   asm volatile (                     // 7-9  até aqui
+ 162               		.loc 1 266 0
+ 163               	/* #APP */
+ 164               	 ;  266 "main.c" 1
+ 165 0078 1FB6      		in __zero_reg__,__SREG__ 
+ 166 007a AABD      		out 42,r26
+ 167 007c BBBD      		out 43,r27
+ 168 007e B0E0      		ldi r27,hi8(COLUMN_STATUS)
+ 169 0080 A3B1      		in r26,3 
+ 170 0082 A050      		subi r26, lo8(-(COLUMN_STATUS)) 
+ 171 0084 AC91      		ld 26,X 
+ 172 0086 A8B9      		out 8 ,r26 
+ 173 0088 AAB5      		in r26, 42 
+ 174 008a BBB5      		in r27, 43 
+ 175 008c E19A      		sbi 28,1 
+ 176 008e 1FBE      		out __SREG__,__zero_reg__ 
+ 177 0090 1090 0000 		lds __zero_reg__, zero 
+ 178 0094 1895      		reti 
+ 179               		
+ 180               	 ;  0 "" 2
+ 181               	/* epilogue start */
+ 267:main.c        ****     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
+ 268:main.c        ****     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
+ 269:main.c        ****     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+ 270:main.c        ****     
+ 271:main.c        ****     "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+ 272:main.c        ****     "in r26,3 \n\t"           // 1  add 0 since this is the first vector
+ 273:main.c        ****     "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
+ 274:main.c        ****                                      // It performs array indexing by adding a (byte) 
+ 275:main.c        ****                                      // index to the base of the array. Unfortunately
+ 276:main.c        ****                                      // the instruction set lacks immediate addition
+ 277:main.c        ****                                      // so a subtraction of the negative base is used
+ 278:main.c        ****                                      // instead. The full 16-bit addition is pieced
+ 279:main.c        ****                                      // together from separately processing low/high
+ 280:main.c        ****                                      // bytes since the AVR also has limited support
+ 281:main.c        ****                                      // for 16-bit arithmetic (actually there is an
+ 282:main.c        ****                                      // adiw instruction but the range is very limited.) 
+ 283:main.c        ****     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+ 284:main.c        ****     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
+ 285:main.c        ****                                      // até aqui 16 instruções (1us @16Mhz)
+ 286:main.c        ****     "in r26, %[_GPIOR1] \n\t"
+ 287:main.c        ****     "in r27, %[_GPIOR2] \n\t"
+ 288:main.c        **** 
+ 289:main.c        ****     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+ 290:main.c        **** 
+ 291:main.c        ****     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+ 292:main.c        ****     "lds __zero_reg__, zero \n\t"
+ 293:main.c        ****     "reti \n\t"
+ 294:main.c        **** 
+ 295:main.c        ****     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+ 296:main.c        ****     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+ 297:main.c        ****     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+ 298:main.c        ****     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
+ 299:main.c        ****     );
+ 300:main.c        **** 
+ 301:main.c        **** };
+ 182               		.loc 1 301 0
+ 183               	/* #NOAPP */
+ 184               		.cfi_endproc
+ 185               	.LFE11:
+ 187               	.global	__vector_5
+ 189               	__vector_5:
+ 190               	.LFB12:
+ 302:main.c        **** 
+ 303:main.c        **** // COLUMN_STATUS[4]
+ 304:main.c        **** ISR (INT4_vect, ISR_NAKED) {
+ 191               		.loc 1 304 0
+ 192               		.cfi_startproc
+ 193               	/* prologue: naked */
+ 194               	/* frame size = 0 */
+ 195               	/* stack size = 0 */
+ 196               	.L__stack_usage = 0
+ 305:main.c        ****   asm volatile (                     // 7-9  até aqui
+ 197               		.loc 1 305 0
+ 198               	/* #APP */
+ 199               	 ;  305 "main.c" 1
+ 200 0096 1FB6      		in __zero_reg__,__SREG__ 
+ 201 0098 AABD      		out 42,r26
+ 202 009a BBBD      		out 43,r27
+ 203 009c B0E0      		ldi r27,hi8(COLUMN_STATUS)
+ 204 009e A4B1      		in r26,4 
+ 205 00a0 A050      		subi r26, lo8(-(COLUMN_STATUS)) 
+ 206 00a2 AC91      		ld 26,X 
+ 207 00a4 A8B9      		out 8 ,r26 
+ 208 00a6 AAB5      		in r26, 42 
+ 209 00a8 BBB5      		in r27, 43 
+ 210 00aa E19A      		sbi 28,1 
+ 211 00ac 1FBE      		out __SREG__,__zero_reg__ 
+ 212 00ae 1090 0000 		lds __zero_reg__, zero 
+ 213 00b2 1895      		reti 
+ 214               		
+ 215               	 ;  0 "" 2
+ 216               	/* epilogue start */
+ 306:main.c        ****     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
+ 307:main.c        ****     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
+ 308:main.c        ****     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+ 309:main.c        ****     
+ 310:main.c        ****     "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+ 311:main.c        ****     "in r26,4 \n\t"           // 1  add 0 since this is the first vector
+ 312:main.c        ****     "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
+ 313:main.c        ****                                      // It performs array indexing by adding a (byte) 
+ 314:main.c        ****                                      // index to the base of the array. Unfortunately
+ 315:main.c        ****                                      // the instruction set lacks immediate addition
+ 316:main.c        ****                                      // so a subtraction of the negative base is used
+ 317:main.c        ****                                      // instead. The full 16-bit addition is pieced
+ 318:main.c        ****                                      // together from separately processing low/high
+ 319:main.c        ****                                      // bytes since the AVR also has limited support
+ 320:main.c        ****                                      // for 16-bit arithmetic (actually there is an
+ 321:main.c        ****                                      // adiw instruction but the range is very limited.) 
+ 322:main.c        ****     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+ 323:main.c        ****     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
+ 324:main.c        ****                                      // até aqui 16 instruções (1us @16Mhz)
+ 325:main.c        ****     "in r26, %[_GPIOR1] \n\t"
+ 326:main.c        ****     "in r27, %[_GPIOR2] \n\t"
+ 327:main.c        **** 
+ 328:main.c        ****     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+ 329:main.c        **** 
+ 330:main.c        ****     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+ 331:main.c        ****     "lds __zero_reg__, zero \n\t"
+ 332:main.c        ****     "reti \n\t"
+ 333:main.c        **** 
+ 334:main.c        ****     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+ 335:main.c        ****     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+ 336:main.c        ****     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+ 337:main.c        ****     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
+ 338:main.c        ****     );
+ 339:main.c        **** 
+ 340:main.c        **** };
+ 217               		.loc 1 340 0
+ 218               	/* #NOAPP */
+ 219               		.cfi_endproc
+ 220               	.LFE12:
+ 222               	.global	__vector_6
+ 224               	__vector_6:
+ 225               	.LFB13:
+ 341:main.c        **** 
+ 342:main.c        **** // COLUMN_STATUS[5]
+ 343:main.c        **** ISR (INT5_vect, ISR_NAKED) {
+ 226               		.loc 1 343 0
+ 227               		.cfi_startproc
+ 228               	/* prologue: naked */
+ 229               	/* frame size = 0 */
+ 230               	/* stack size = 0 */
+ 231               	.L__stack_usage = 0
+ 344:main.c        ****   asm volatile (                     // 7-9  até aqui
+ 232               		.loc 1 344 0
+ 233               	/* #APP */
+ 234               	 ;  344 "main.c" 1
+ 235 00b4 1FB6      		in __zero_reg__,__SREG__ 
+ 236 00b6 AABD      		out 42,r26
+ 237 00b8 BBBD      		out 43,r27
+ 238 00ba B0E0      		ldi r27,hi8(COLUMN_STATUS)
+ 239 00bc A5B1      		in r26,5 
+ 240 00be A050      		subi r26, lo8(-(COLUMN_STATUS)) 
+ 241 00c0 AC91      		ld 26,X 
+ 242 00c2 A8B9      		out 8 ,r26 
+ 243 00c4 AAB5      		in r26, 42 
+ 244 00c6 BBB5      		in r27, 43 
+ 245 00c8 E19A      		sbi 28,1 
+ 246 00ca 1FBE      		out __SREG__,__zero_reg__ 
+ 247 00cc 1090 0000 		lds __zero_reg__, zero 
+ 248 00d0 1895      		reti 
+ 249               		
+ 250               	 ;  0 "" 2
+ 251               	/* epilogue start */
+ 345:main.c        ****     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
+ 346:main.c        ****     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
+ 347:main.c        ****     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+ 348:main.c        ****     
+ 349:main.c        ****     "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+ 350:main.c        ****     "in r26,5 \n\t"           // 1  add 0 since this is the first vector
+ 351:main.c        ****     "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
+ 352:main.c        ****                                      // It performs array indexing by adding a (byte) 
+ 353:main.c        ****                                      // index to the base of the array. Unfortunately
+ 354:main.c        ****                                      // the instruction set lacks immediate addition
+ 355:main.c        ****                                      // so a subtraction of the negative base is used
+ 356:main.c        ****                                      // instead. The full 16-bit addition is pieced
+ 357:main.c        ****                                      // together from separately processing low/high
+ 358:main.c        ****                                      // bytes since the AVR also has limited support
+ 359:main.c        ****                                      // for 16-bit arithmetic (actually there is an
+ 360:main.c        ****                                      // adiw instruction but the range is very limited.) 
+ 361:main.c        ****     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+ 362:main.c        ****     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
+ 363:main.c        ****                                      // até aqui 16 instruções (1us @16Mhz)
+ 364:main.c        ****     "in r26, %[_GPIOR1] \n\t"
+ 365:main.c        ****     "in r27, %[_GPIOR2] \n\t"
+ 366:main.c        **** 
+ 367:main.c        ****     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+ 368:main.c        **** 
+ 369:main.c        ****     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+ 370:main.c        ****     "lds __zero_reg__, zero \n\t"
+ 371:main.c        ****     "reti \n\t"
+ 372:main.c        **** 
+ 373:main.c        ****     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+ 374:main.c        ****     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+ 375:main.c        ****     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+ 376:main.c        ****     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
+ 377:main.c        ****     );
+ 378:main.c        **** 
+ 379:main.c        **** };
+ 252               		.loc 1 379 0
+ 253               	/* #NOAPP */
+ 254               		.cfi_endproc
+ 255               	.LFE13:
+ 257               	.global	__vector_7
+ 259               	__vector_7:
+ 260               	.LFB14:
+ 380:main.c        **** 
+ 381:main.c        **** // COLUMN_STATUS[6]
+ 382:main.c        **** ISR (INT6_vect, ISR_NAKED) {
+ 261               		.loc 1 382 0
+ 262               		.cfi_startproc
+ 263               	/* prologue: naked */
+ 264               	/* frame size = 0 */
+ 265               	/* stack size = 0 */
+ 266               	.L__stack_usage = 0
+ 383:main.c        ****   asm volatile (                     // 7-9  até aqui
+ 267               		.loc 1 383 0
+ 268               	/* #APP */
+ 269               	 ;  383 "main.c" 1
+ 270 00d2 1FB6      		in __zero_reg__,__SREG__ 
+ 271 00d4 AABD      		out 42,r26
+ 272 00d6 BBBD      		out 43,r27
+ 273 00d8 B0E0      		ldi r27,hi8(COLUMN_STATUS)
+ 274 00da A6B1      		in r26,6 
+ 275 00dc A050      		subi r26, lo8(-(COLUMN_STATUS)) 
+ 276 00de AC91      		ld 26,X 
+ 277 00e0 A8B9      		out 8 ,r26 
+ 278 00e2 AAB5      		in r26, 42 
+ 279 00e4 BBB5      		in r27, 43 
+ 280 00e6 E19A      		sbi 28,1 
+ 281 00e8 1FBE      		out __SREG__,__zero_reg__ 
+ 282 00ea 1090 0000 		lds __zero_reg__, zero 
+ 283 00ee 1895      		reti 
+ 284               		
+ 285               	 ;  0 "" 2
+ 286               	/* epilogue start */
+ 384:main.c        ****     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
+ 385:main.c        ****     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
+ 386:main.c        ****     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+ 387:main.c        ****     
+ 388:main.c        ****     "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+ 389:main.c        ****     "in r26,6 \n\t"           // 1  add 0 since this is the first vector
+ 390:main.c        ****     "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
+ 391:main.c        ****                                      // It performs array indexing by adding a (byte) 
+ 392:main.c        ****                                      // index to the base of the array. Unfortunately
+ 393:main.c        ****                                      // the instruction set lacks immediate addition
+ 394:main.c        ****                                      // so a subtraction of the negative base is used
+ 395:main.c        ****                                      // instead. The full 16-bit addition is pieced
+ 396:main.c        ****                                      // together from separately processing low/high
+ 397:main.c        ****                                      // bytes since the AVR also has limited support
+ 398:main.c        ****                                      // for 16-bit arithmetic (actually there is an
+ 399:main.c        ****                                      // adiw instruction but the range is very limited.) 
+ 400:main.c        ****     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+ 401:main.c        ****     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
+ 402:main.c        ****                                      // até aqui 16 instruções (1us @16Mhz)
+ 403:main.c        ****     "in r26, %[_GPIOR1] \n\t"
+ 404:main.c        ****     "in r27, %[_GPIOR2] \n\t"
+ 405:main.c        **** 
+ 406:main.c        ****     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+ 407:main.c        **** 
+ 408:main.c        ****     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+ 409:main.c        ****     "lds __zero_reg__, zero \n\t"
+ 410:main.c        ****     "reti \n\t"
+ 411:main.c        **** 
+ 412:main.c        ****     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+ 413:main.c        ****     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+ 414:main.c        ****     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+ 415:main.c        ****     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
+ 416:main.c        ****     );
+ 417:main.c        **** 
+ 418:main.c        **** };
+ 287               		.loc 1 418 0
+ 288               	/* #NOAPP */
+ 289               		.cfi_endproc
+ 290               	.LFE14:
+ 292               	.global	__vector_8
+ 294               	__vector_8:
+ 295               	.LFB15:
+ 419:main.c        **** 
+ 420:main.c        **** // COLUMN_STATUS[7]
+ 421:main.c        **** ISR (INT7_vect, ISR_NAKED) {
+ 296               		.loc 1 421 0
+ 297               		.cfi_startproc
+ 298               	/* prologue: naked */
+ 299               	/* frame size = 0 */
+ 300               	/* stack size = 0 */
+ 301               	.L__stack_usage = 0
+ 422:main.c        ****   asm volatile (                     // 7-9  até aqui
+ 302               		.loc 1 422 0
+ 303               	/* #APP */
+ 304               	 ;  422 "main.c" 1
+ 305 00f0 1FB6      		in __zero_reg__,__SREG__ 
+ 306 00f2 AABD      		out 42,r26
+ 307 00f4 BBBD      		out 43,r27
+ 308 00f6 B0E0      		ldi r27,hi8(COLUMN_STATUS)
+ 309 00f8 A7B1      		in r26,7 
+ 310 00fa A050      		subi r26, lo8(-(COLUMN_STATUS)) 
+ 311 00fc AC91      		ld 26,X 
+ 312 00fe A8B9      		out 8 ,r26 
+ 313 0100 AAB5      		in r26, 42 
+ 314 0102 BBB5      		in r27, 43 
+ 315 0104 E19A      		sbi 28,1 
+ 316 0106 1FBE      		out __SREG__,__zero_reg__ 
+ 317 0108 1090 0000 		lds __zero_reg__, zero 
+ 318 010c 1895      		reti 
+ 319               		
+ 320               	 ;  0 "" 2
+ 321               	/* epilogue start */
+ 423:main.c        ****     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
+ 424:main.c        ****     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
+ 425:main.c        ****     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+ 426:main.c        ****     
+ 427:main.c        ****     "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+ 428:main.c        ****     "in r26,7 \n\t"           // 1  add 0 since this is the first vector
+ 429:main.c        ****     "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
+ 430:main.c        ****                                      // It performs array indexing by adding a (byte) 
+ 431:main.c        ****                                      // index to the base of the array. Unfortunately
+ 432:main.c        ****                                      // the instruction set lacks immediate addition
+ 433:main.c        ****                                      // so a subtraction of the negative base is used
+ 434:main.c        ****                                      // instead. The full 16-bit addition is pieced
+ 435:main.c        ****                                      // together from separately processing low/high
+ 436:main.c        ****                                      // bytes since the AVR also has limited support
+ 437:main.c        ****                                      // for 16-bit arithmetic (actually there is an
+ 438:main.c        ****                                      // adiw instruction but the range is very limited.) 
+ 439:main.c        ****     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+ 440:main.c        ****     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
+ 441:main.c        ****                                      // até aqui 16 instruções (1us @16Mhz)
+ 442:main.c        ****     "in r26, %[_GPIOR1] \n\t"
+ 443:main.c        ****     "in r27, %[_GPIOR2] \n\t"
+ 444:main.c        **** 
+ 445:main.c        ****     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+ 446:main.c        **** 
+ 447:main.c        ****     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+ 448:main.c        ****     "lds __zero_reg__, zero \n\t"
+ 449:main.c        ****     "reti \n\t"
+ 450:main.c        **** 
+ 451:main.c        ****     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+ 452:main.c        ****     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+ 453:main.c        ****     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+ 454:main.c        ****     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
+ 455:main.c        ****     );
+ 456:main.c        **** 
+ 457:main.c        **** };
+ 322               		.loc 1 457 0
+ 323               	/* #NOAPP */
+ 324               		.cfi_endproc
+ 325               	.LFE15:
+ 327               	.global	setup
+ 329               	setup:
+ 330               	.LFB17:
+ 458:main.c        **** 
+ 459:main.c        **** /////////////////////////////////////////////////////////////////////////////////////////////////
+ 460:main.c        **** 
+ 461:main.c        **** int main (void) {
+ 462:main.c        ****    setup();
+ 463:main.c        ****    for (;;) loop ();
+ 464:main.c        **** }
+ 465:main.c        **** 
+ 466:main.c        **** 
+ 467:main.c        **** 
+ 468:main.c        **** //    ___      _
+ 469:main.c        **** //   / __| ___| |_ _  _ _ __
+ 470:main.c        **** //   \__ \/ -_)  _| || | '_ \
+ 471:main.c        **** //   |___/\___|\__|\_,_| .__/
+ 472:main.c        **** //                     |_|
+ 473:main.c        **** 
+ 474:main.c        **** 
+ 475:main.c        **** void setup(void) {
+ 331               		.loc 1 475 0
+ 332               		.cfi_startproc
+ 333               	/* prologue: function */
+ 334               	/* frame size = 0 */
+ 335               	/* stack size = 0 */
+ 336               	.L__stack_usage = 0
+ 476:main.c        ****     //Teensy++ 2.0 CPU initialization
+ 477:main.c        ****     cli();
+ 337               		.loc 1 477 0
+ 338               	/* #APP */
+ 339               	 ;  477 "main.c" 1
+ 340 010e F894      		cli
+ 341               	 ;  0 "" 2
+ 478:main.c        ****     CLKPR = 0x80;
+ 342               		.loc 1 478 0
+ 343               	/* #NOAPP */
+ 344 0110 E1E6      		ldi r30,lo8(97)
+ 345 0112 F0E0      		ldi r31,0
+ 346 0114 80E8      		ldi r24,lo8(-128)
+ 347 0116 8083      		st Z,r24
+ 479:main.c        ****     CLKPR = CPU_PRESCALER;
+ 348               		.loc 1 479 0
+ 349 0118 1082      		st Z,__zero_reg__
+ 480:main.c        ****     // End of CPU initialization
+ 481:main.c        ****     // Enable digital input on ADC ports
+ 482:main.c        ****     DIDR0 = 0;
+ 350               		.loc 1 482 0
+ 351 011a 1092 7E00 		sts 126,__zero_reg__
+ 483:main.c        ****     // End of Teensy configuration
+ 484:main.c        ****     
+ 485:main.c        ****     /*
+ 486:main.c        ****     DDRB = (1 << 5);   // pb5 all pins as inputs
+ 487:main.c        ****     PORTB = 0x03; // pullups on PS/2 pins
+ 488:main.c        **** 
+ 489:main.c        ****     DDRC =  0xf0; // unused pins as outputs
+ 490:main.c        ****     PORTC = 0x00; // no pullups
+ 491:main.c        **** 
+ 492:main.c        ****     DDRD =  0x00; // all matrix columns pins pins as inputs
+ 493:main.c        ****     PORTD = 0x00; // all matrix columns pins open (unactive for MSX)
+ 494:main.c        ****     */
+ 495:main.c        ****     
+ 496:main.c        ****     //Make sure internal pull up funcionality is enabled:
+ 497:main.c        ****     //MCUCR &= ~(_BV(PUD)); // not needed. this is the default
+ 498:main.c        **** 
+ 499:main.c        ****     // Interrupt pins (INT0..7)
+ 500:main.c        ****     DDRD =  0xF0; // D0..D3 input, the rest output
+ 352               		.loc 1 500 0
+ 353 011e 80EF      		ldi r24,lo8(-16)
+ 354 0120 8AB9      		out 0xa,r24
+ 501:main.c        ****     PORTD = 0xF0; // D0..D3 pullup
+ 355               		.loc 1 501 0
+ 356 0122 8BB9      		out 0xb,r24
+ 502:main.c        ****     DDRE =  0x0F; // E4..E7 input
+ 357               		.loc 1 502 0
+ 358 0124 8FE0      		ldi r24,lo8(15)
+ 359 0126 8DB9      		out 0xd,r24
+ 503:main.c        ****     PORTE = 0x0F; // E4..E7 pullup
+ 360               		.loc 1 503 0
+ 361 0128 8EB9      		out 0xe,r24
+ 504:main.c        ****     
+ 505:main.c        ****     //This one is Y8, but using a pin change interrupt.
+ 506:main.c        ****     DDRB = 0xFE; // PB0 input. other output
+ 362               		.loc 1 506 0
+ 363 012a 8EEF      		ldi r24,lo8(-2)
+ 364 012c 84B9      		out 0x4,r24
+ 507:main.c        ****     PORTB = _BV(PB0); // PB0 pullup
+ 365               		.loc 1 507 0
+ 366 012e 81E0      		ldi r24,lo8(1)
+ 367 0130 85B9      		out 0x5,r24
+ 508:main.c        ****     
+ 509:main.c        **** 
+ 510:main.c        ****     DDRD |= _BV(PD6); //Port 6 OUTPUT
+ 368               		.loc 1 510 0
+ 369 0132 569A      		sbi 0xa,6
+ 511:main.c        ****     PORTD |= _BV(PD6); //Port 6 HIGH
+ 370               		.loc 1 511 0
+ 371 0134 5E9A      		sbi 0xb,6
+ 512:main.c        **** 
+ 513:main.c        ****     // Output pins (simulates matrix)
+ 514:main.c        ****     DDRC = 0xFF; // PORTC (10 to 18 in teensy++ 2.0) is the column output
+ 372               		.loc 1 514 0
+ 373 0136 9FEF      		ldi r25,lo8(-1)
+ 374 0138 97B9      		out 0x7,r25
+ 515:main.c        ****     PORTC = 0xFF; // write high on all ports
+ 375               		.loc 1 515 0
+ 376 013a 98B9      		out 0x8,r25
+ 516:main.c        ****     
+ 517:main.c        ****     UCSR1B = 0; // disable USART
+ 377               		.loc 1 517 0
+ 378 013c 1092 C900 		sts 201,__zero_reg__
+ 518:main.c        **** 
+ 519:main.c        ****     // Configure Interrupts
+ 520:main.c        ****     EIMSK  = 0x0; // disable external interrupts when configuring
+ 379               		.loc 1 520 0
+ 380 0140 1DBA      		out 0x1d,__zero_reg__
+ 521:main.c        ****     EIFR = 0x0; // clear any pending interrupt
+ 381               		.loc 1 521 0
+ 382 0142 1CBA      		out 0x1c,__zero_reg__
+ 522:main.c        ****     EICRA = 0xAA; //falling edge on INT0..3
+ 383               		.loc 1 522 0
+ 384 0144 2AEA      		ldi r18,lo8(-86)
+ 385 0146 2093 6900 		sts 105,r18
+ 523:main.c        ****     EICRB = 0xAA; //falling edge on INT4..7
+ 386               		.loc 1 523 0
+ 387 014a 2093 6A00 		sts 106,r18
+ 524:main.c        ****     EIMSK  = 0xFF; // enable all external interrupts
+ 388               		.loc 1 524 0
+ 389 014e 9DBB      		out 0x1d,r25
+ 525:main.c        **** 
+ 526:main.c        ****     PCICR  = (1 << PCIE0); // enable pin change interrupts
+ 390               		.loc 1 526 0
+ 391 0150 8093 6800 		sts 104,r24
+ 527:main.c        ****     PCIFR |= (1 << PCIF0); // clear any pending interrupt
+ 392               		.loc 1 527 0
+ 393 0154 D89A      		sbi 0x1b,0
+ 528:main.c        ****     PCMSK0 = 0x01;        // PB0 (PCINT0) change interrupt for the keyboard
+ 394               		.loc 1 528 0
+ 395 0156 8093 6B00 		sts 107,r24
+ 529:main.c        **** 
+ 530:main.c        ****     TIMSK0 = 0;           // disable Timer 0 interrupts generated by Arduino
+ 396               		.loc 1 530 0
+ 397 015a 1092 6E00 		sts 110,__zero_reg__
+ 531:main.c        ****     sei();                // enable interrupts
+ 398               		.loc 1 531 0
+ 399               	/* #APP */
+ 400               	 ;  531 "main.c" 1
+ 401 015e 7894      		sei
+ 402               	 ;  0 "" 2
+ 403               	/* #NOAPP */
+ 404 0160 0895      		ret
+ 405               		.cfi_endproc
+ 406               	.LFE17:
+ 408               	.global	loop
+ 410               	loop:
+ 411               	.LFB18:
+ 532:main.c        ****     
+ 533:main.c        ****     
+ 534:main.c        **** }
+ 535:main.c        **** 
+ 536:main.c        **** 
+ 537:main.c        **** 
+ 538:main.c        **** 
+ 539:main.c        **** 
+ 540:main.c        **** 
+ 541:main.c        **** //    _                   ____
+ 542:main.c        **** //   | |   ___  ___ _ __ / /\ \ 
+ 543:main.c        **** //   | |__/ _ \/ _ \ '_ \ |  | |
+ 544:main.c        **** //   |____\___/\___/ .__/ |  | |
+ 545:main.c        **** //                 |_|   \_\/_/
+ 546:main.c        **** 
+ 547:main.c        **** 
+ 548:main.c        **** 
+ 549:main.c        **** 
+ 550:main.c        **** void loop(void) {
+ 412               		.loc 1 550 0
+ 413               		.cfi_startproc
+ 414               	/* prologue: function */
+ 415               	/* frame size = 0 */
+ 416               	/* stack size = 0 */
+ 417               	.L__stack_usage = 0
+ 551:main.c        ****   for (;;) {
+ 552:main.c        ****       _delay_ms(1000);
+ 553:main.c        ****       PORTD ^= _BV(PD6); //Port D6 (led) toggle
+ 418               		.loc 1 553 0
+ 419 0162 90E4      		ldi r25,lo8(64)
+ 420               	.L12:
+ 421               	.LVL0:
+ 422               	.LBB4:
+ 423               	.LBB5:
+ 424               		.file 2 "/usr/lib/avr/include/util/delay.h"
+   1:/usr/lib/avr/include/util/delay.h **** /* Copyright (c) 2002, Marek Michalkiewicz
+   2:/usr/lib/avr/include/util/delay.h ****    Copyright (c) 2004,2005,2007 Joerg Wunsch
+   3:/usr/lib/avr/include/util/delay.h ****    Copyright (c) 2007  Florin-Viorel Petrov
+   4:/usr/lib/avr/include/util/delay.h ****    All rights reserved.
+   5:/usr/lib/avr/include/util/delay.h **** 
+   6:/usr/lib/avr/include/util/delay.h ****    Redistribution and use in source and binary forms, with or without
+   7:/usr/lib/avr/include/util/delay.h ****    modification, are permitted provided that the following conditions are met:
+   8:/usr/lib/avr/include/util/delay.h **** 
+   9:/usr/lib/avr/include/util/delay.h ****    * Redistributions of source code must retain the above copyright
+  10:/usr/lib/avr/include/util/delay.h ****      notice, this list of conditions and the following disclaimer.
+  11:/usr/lib/avr/include/util/delay.h **** 
+  12:/usr/lib/avr/include/util/delay.h ****    * Redistributions in binary form must reproduce the above copyright
+  13:/usr/lib/avr/include/util/delay.h ****      notice, this list of conditions and the following disclaimer in
+  14:/usr/lib/avr/include/util/delay.h ****      the documentation and/or other materials provided with the
+  15:/usr/lib/avr/include/util/delay.h ****      distribution.
+  16:/usr/lib/avr/include/util/delay.h **** 
+  17:/usr/lib/avr/include/util/delay.h ****    * Neither the name of the copyright holders nor the names of
+  18:/usr/lib/avr/include/util/delay.h ****      contributors may be used to endorse or promote products derived
+  19:/usr/lib/avr/include/util/delay.h ****      from this software without specific prior written permission.
+  20:/usr/lib/avr/include/util/delay.h **** 
+  21:/usr/lib/avr/include/util/delay.h ****   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  22:/usr/lib/avr/include/util/delay.h ****   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  23:/usr/lib/avr/include/util/delay.h ****   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  24:/usr/lib/avr/include/util/delay.h ****   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+  25:/usr/lib/avr/include/util/delay.h ****   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  26:/usr/lib/avr/include/util/delay.h ****   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  27:/usr/lib/avr/include/util/delay.h ****   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  28:/usr/lib/avr/include/util/delay.h ****   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  29:/usr/lib/avr/include/util/delay.h ****   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  30:/usr/lib/avr/include/util/delay.h ****   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  31:/usr/lib/avr/include/util/delay.h ****   POSSIBILITY OF SUCH DAMAGE. */
+  32:/usr/lib/avr/include/util/delay.h **** 
+  33:/usr/lib/avr/include/util/delay.h **** /* $Id$ */
+  34:/usr/lib/avr/include/util/delay.h **** 
+  35:/usr/lib/avr/include/util/delay.h **** #ifndef _UTIL_DELAY_H_
+  36:/usr/lib/avr/include/util/delay.h **** #define _UTIL_DELAY_H_ 1
+  37:/usr/lib/avr/include/util/delay.h **** 
+  38:/usr/lib/avr/include/util/delay.h **** #ifndef __DOXYGEN__
+  39:/usr/lib/avr/include/util/delay.h **** #  ifndef __HAS_DELAY_CYCLES
+  40:/usr/lib/avr/include/util/delay.h **** #    define __HAS_DELAY_CYCLES 1
+  41:/usr/lib/avr/include/util/delay.h **** #  endif
+  42:/usr/lib/avr/include/util/delay.h **** #endif  /* __DOXYGEN__ */
+  43:/usr/lib/avr/include/util/delay.h **** 
+  44:/usr/lib/avr/include/util/delay.h **** #include <inttypes.h>
+  45:/usr/lib/avr/include/util/delay.h **** #include <util/delay_basic.h>
+  46:/usr/lib/avr/include/util/delay.h **** #include <math.h>
+  47:/usr/lib/avr/include/util/delay.h **** 
+  48:/usr/lib/avr/include/util/delay.h **** /** \file */
+  49:/usr/lib/avr/include/util/delay.h **** /** \defgroup util_delay <util/delay.h>: Convenience functions for busy-wait delay loops
+  50:/usr/lib/avr/include/util/delay.h ****     \code
+  51:/usr/lib/avr/include/util/delay.h ****     #define F_CPU 1000000UL  // 1 MHz
+  52:/usr/lib/avr/include/util/delay.h ****     //#define F_CPU 14.7456E6
+  53:/usr/lib/avr/include/util/delay.h ****     #include <util/delay.h>
+  54:/usr/lib/avr/include/util/delay.h ****     \endcode
+  55:/usr/lib/avr/include/util/delay.h **** 
+  56:/usr/lib/avr/include/util/delay.h ****     \note As an alternative method, it is possible to pass the
+  57:/usr/lib/avr/include/util/delay.h ****     F_CPU macro down to the compiler from the Makefile.
+  58:/usr/lib/avr/include/util/delay.h ****     Obviously, in that case, no \c \#define statement should be
+  59:/usr/lib/avr/include/util/delay.h ****     used.
+  60:/usr/lib/avr/include/util/delay.h **** 
+  61:/usr/lib/avr/include/util/delay.h ****     The functions in this header file are wrappers around the basic
+  62:/usr/lib/avr/include/util/delay.h ****     busy-wait functions from <util/delay_basic.h>.  They are meant as
+  63:/usr/lib/avr/include/util/delay.h ****     convenience functions where actual time values can be specified
+  64:/usr/lib/avr/include/util/delay.h ****     rather than a number of cycles to wait for.  The idea behind is
+  65:/usr/lib/avr/include/util/delay.h ****     that compile-time constant expressions will be eliminated by
+  66:/usr/lib/avr/include/util/delay.h ****     compiler optimization so floating-point expressions can be used
+  67:/usr/lib/avr/include/util/delay.h ****     to calculate the number of delay cycles needed based on the CPU
+  68:/usr/lib/avr/include/util/delay.h ****     frequency passed by the macro F_CPU.
+  69:/usr/lib/avr/include/util/delay.h **** 
+  70:/usr/lib/avr/include/util/delay.h ****     \note In order for these functions to work as intended, compiler
+  71:/usr/lib/avr/include/util/delay.h ****     optimizations <em>must</em> be enabled, and the delay time
+  72:/usr/lib/avr/include/util/delay.h ****     <em>must</em> be an expression that is a known constant at
+  73:/usr/lib/avr/include/util/delay.h ****     compile-time.  If these requirements are not met, the resulting
+  74:/usr/lib/avr/include/util/delay.h ****     delay will be much longer (and basically unpredictable), and
+  75:/usr/lib/avr/include/util/delay.h ****     applications that otherwise do not use floating-point calculations
+  76:/usr/lib/avr/include/util/delay.h ****     will experience severe code bloat by the floating-point library
+  77:/usr/lib/avr/include/util/delay.h ****     routines linked into the application.
+  78:/usr/lib/avr/include/util/delay.h **** 
+  79:/usr/lib/avr/include/util/delay.h ****     The functions available allow the specification of microsecond, and
+  80:/usr/lib/avr/include/util/delay.h ****     millisecond delays directly, using the application-supplied macro
+  81:/usr/lib/avr/include/util/delay.h ****     F_CPU as the CPU clock frequency (in Hertz).
+  82:/usr/lib/avr/include/util/delay.h **** 
+  83:/usr/lib/avr/include/util/delay.h **** */
+  84:/usr/lib/avr/include/util/delay.h **** 
+  85:/usr/lib/avr/include/util/delay.h **** #if !defined(__DOXYGEN__)
+  86:/usr/lib/avr/include/util/delay.h **** static __inline__ void _delay_us(double __us) __attribute__((__always_inline__));
+  87:/usr/lib/avr/include/util/delay.h **** static __inline__ void _delay_ms(double __ms) __attribute__((__always_inline__));
+  88:/usr/lib/avr/include/util/delay.h **** #endif
+  89:/usr/lib/avr/include/util/delay.h **** 
+  90:/usr/lib/avr/include/util/delay.h **** #ifndef F_CPU
+  91:/usr/lib/avr/include/util/delay.h **** /* prevent compiler error by supplying a default */
+  92:/usr/lib/avr/include/util/delay.h **** # warning "F_CPU not defined for <util/delay.h>"
+  93:/usr/lib/avr/include/util/delay.h **** /** \ingroup util_delay
+  94:/usr/lib/avr/include/util/delay.h ****     \def F_CPU
+  95:/usr/lib/avr/include/util/delay.h ****     \brief CPU frequency in Hz
+  96:/usr/lib/avr/include/util/delay.h **** 
+  97:/usr/lib/avr/include/util/delay.h ****     The macro F_CPU specifies the CPU frequency to be considered by
+  98:/usr/lib/avr/include/util/delay.h ****     the delay macros.  This macro is normally supplied by the
+  99:/usr/lib/avr/include/util/delay.h ****     environment (e.g. from within a project header, or the project's
+ 100:/usr/lib/avr/include/util/delay.h ****     Makefile).  The value 1 MHz here is only provided as a "vanilla"
+ 101:/usr/lib/avr/include/util/delay.h ****     fallback if no such user-provided definition could be found.
+ 102:/usr/lib/avr/include/util/delay.h **** 
+ 103:/usr/lib/avr/include/util/delay.h ****     In terms of the delay functions, the CPU frequency can be given as
+ 104:/usr/lib/avr/include/util/delay.h ****     a floating-point constant (e.g. 3.6864E6 for 3.6864 MHz).
+ 105:/usr/lib/avr/include/util/delay.h ****     However, the macros in <util/setbaud.h> require it to be an
+ 106:/usr/lib/avr/include/util/delay.h ****     integer value.
+ 107:/usr/lib/avr/include/util/delay.h ****  */
+ 108:/usr/lib/avr/include/util/delay.h **** # define F_CPU 1000000UL
+ 109:/usr/lib/avr/include/util/delay.h **** #endif
+ 110:/usr/lib/avr/include/util/delay.h **** 
+ 111:/usr/lib/avr/include/util/delay.h **** #ifndef __OPTIMIZE__
+ 112:/usr/lib/avr/include/util/delay.h **** # warning "Compiler optimizations disabled; functions from <util/delay.h> won't work as designed"
+ 113:/usr/lib/avr/include/util/delay.h **** #endif
+ 114:/usr/lib/avr/include/util/delay.h **** 
+ 115:/usr/lib/avr/include/util/delay.h **** #if __HAS_DELAY_CYCLES && defined(__OPTIMIZE__) && \
+ 116:/usr/lib/avr/include/util/delay.h ****   !defined(__DELAY_BACKWARD_COMPATIBLE__) &&	   \
+ 117:/usr/lib/avr/include/util/delay.h ****   __STDC_HOSTED__
+ 118:/usr/lib/avr/include/util/delay.h **** #  include <math.h>
+ 119:/usr/lib/avr/include/util/delay.h **** #endif
+ 120:/usr/lib/avr/include/util/delay.h **** 
+ 121:/usr/lib/avr/include/util/delay.h **** /**
+ 122:/usr/lib/avr/include/util/delay.h ****    \ingroup util_delay
+ 123:/usr/lib/avr/include/util/delay.h **** 
+ 124:/usr/lib/avr/include/util/delay.h ****    Perform a delay of \c __ms milliseconds, using _delay_loop_2().
+ 125:/usr/lib/avr/include/util/delay.h **** 
+ 126:/usr/lib/avr/include/util/delay.h ****    The macro F_CPU is supposed to be defined to a
+ 127:/usr/lib/avr/include/util/delay.h ****    constant defining the CPU clock frequency (in Hertz).
+ 128:/usr/lib/avr/include/util/delay.h **** 
+ 129:/usr/lib/avr/include/util/delay.h ****    The maximal possible delay is 262.14 ms / F_CPU in MHz.
+ 130:/usr/lib/avr/include/util/delay.h **** 
+ 131:/usr/lib/avr/include/util/delay.h ****    When the user request delay which exceed the maximum possible one,
+ 132:/usr/lib/avr/include/util/delay.h ****    _delay_ms() provides a decreased resolution functionality. In this
+ 133:/usr/lib/avr/include/util/delay.h ****    mode _delay_ms() will work with a resolution of 1/10 ms, providing
+ 134:/usr/lib/avr/include/util/delay.h ****    delays up to 6.5535 seconds (independent from CPU frequency).  The
+ 135:/usr/lib/avr/include/util/delay.h ****    user will not be informed about decreased resolution.
+ 136:/usr/lib/avr/include/util/delay.h **** 
+ 137:/usr/lib/avr/include/util/delay.h ****    If the avr-gcc toolchain has __builtin_avr_delay_cycles()
+ 138:/usr/lib/avr/include/util/delay.h ****    support, maximal possible delay is 4294967.295 ms/ F_CPU in MHz. For
+ 139:/usr/lib/avr/include/util/delay.h ****    values greater than the maximal possible delay, overflows results in
+ 140:/usr/lib/avr/include/util/delay.h ****    no delay i.e., 0ms.
+ 141:/usr/lib/avr/include/util/delay.h **** 
+ 142:/usr/lib/avr/include/util/delay.h ****    Conversion of \c __ms into clock cycles may not always result in
+ 143:/usr/lib/avr/include/util/delay.h ****    integer.  By default, the clock cycles rounded up to next
+ 144:/usr/lib/avr/include/util/delay.h ****    integer. This ensures that the user gets at least \c __ms
+ 145:/usr/lib/avr/include/util/delay.h ****    microseconds of delay.
+ 146:/usr/lib/avr/include/util/delay.h **** 
+ 147:/usr/lib/avr/include/util/delay.h ****    Alternatively, by defining the macro \c __DELAY_ROUND_DOWN__, or
+ 148:/usr/lib/avr/include/util/delay.h ****    \c __DELAY_ROUND_CLOSEST__, before including this header file, the
+ 149:/usr/lib/avr/include/util/delay.h ****    algorithm can be made to round down, or round to closest integer,
+ 150:/usr/lib/avr/include/util/delay.h ****    respectively.
+ 151:/usr/lib/avr/include/util/delay.h **** 
+ 152:/usr/lib/avr/include/util/delay.h ****    \note
+ 153:/usr/lib/avr/include/util/delay.h **** 
+ 154:/usr/lib/avr/include/util/delay.h ****    The implementation of _delay_ms() based on
+ 155:/usr/lib/avr/include/util/delay.h ****    __builtin_avr_delay_cycles() is not backward compatible with older
+ 156:/usr/lib/avr/include/util/delay.h ****    implementations.  In order to get functionality backward compatible
+ 157:/usr/lib/avr/include/util/delay.h ****    with previous versions, the macro \c "__DELAY_BACKWARD_COMPATIBLE__"
+ 158:/usr/lib/avr/include/util/delay.h ****    must be defined before including this header file. Also, the
+ 159:/usr/lib/avr/include/util/delay.h ****    backward compatible algorithm will be chosen if the code is
+ 160:/usr/lib/avr/include/util/delay.h ****    compiled in a <em>freestanding environment</em> (GCC option
+ 161:/usr/lib/avr/include/util/delay.h ****    \c -ffreestanding), as the math functions required for rounding are
+ 162:/usr/lib/avr/include/util/delay.h ****    not available to the compiler then.
+ 163:/usr/lib/avr/include/util/delay.h **** 
+ 164:/usr/lib/avr/include/util/delay.h ****  */
+ 165:/usr/lib/avr/include/util/delay.h **** void
+ 166:/usr/lib/avr/include/util/delay.h **** _delay_ms(double __ms)
+ 167:/usr/lib/avr/include/util/delay.h **** {
+ 168:/usr/lib/avr/include/util/delay.h **** 	double __tmp ;
+ 169:/usr/lib/avr/include/util/delay.h **** #if __HAS_DELAY_CYCLES && defined(__OPTIMIZE__) && \
+ 170:/usr/lib/avr/include/util/delay.h ****   !defined(__DELAY_BACKWARD_COMPATIBLE__) &&	   \
+ 171:/usr/lib/avr/include/util/delay.h ****   __STDC_HOSTED__
+ 172:/usr/lib/avr/include/util/delay.h **** 	uint32_t __ticks_dc;
+ 173:/usr/lib/avr/include/util/delay.h **** 	extern void __builtin_avr_delay_cycles(unsigned long);
+ 174:/usr/lib/avr/include/util/delay.h **** 	__tmp = ((F_CPU) / 1e3) * __ms;
+ 175:/usr/lib/avr/include/util/delay.h **** 
+ 176:/usr/lib/avr/include/util/delay.h **** 	#if defined(__DELAY_ROUND_DOWN__)
+ 177:/usr/lib/avr/include/util/delay.h **** 		__ticks_dc = (uint32_t)fabs(__tmp);
+ 178:/usr/lib/avr/include/util/delay.h **** 
+ 179:/usr/lib/avr/include/util/delay.h **** 	#elif defined(__DELAY_ROUND_CLOSEST__)
+ 180:/usr/lib/avr/include/util/delay.h **** 		__ticks_dc = (uint32_t)(fabs(__tmp)+0.5);
+ 181:/usr/lib/avr/include/util/delay.h **** 
+ 182:/usr/lib/avr/include/util/delay.h **** 	#else
+ 183:/usr/lib/avr/include/util/delay.h **** 		//round up by default
+ 184:/usr/lib/avr/include/util/delay.h **** 		__ticks_dc = (uint32_t)(ceil(fabs(__tmp)));
+ 185:/usr/lib/avr/include/util/delay.h **** 	#endif
+ 186:/usr/lib/avr/include/util/delay.h **** 
+ 187:/usr/lib/avr/include/util/delay.h **** 	__builtin_avr_delay_cycles(__ticks_dc);
+ 425               		.loc 2 187 0 discriminator 1
+ 426 0164 2FEF      		ldi r18,lo8(3199999)
+ 427 0166 33ED      		ldi r19,hi8(3199999)
+ 428 0168 80E3      		ldi r24,hlo8(3199999)
+ 429 016a 2150      	1:	subi r18,1
+ 430 016c 3040      		sbci r19,0
+ 431 016e 8040      		sbci r24,0
+ 432 0170 01F4      		brne 1b
+ 433 0172 00C0      		rjmp .
+ 434 0174 0000      		nop
+ 435               	.LVL1:
+ 436               	.LBE5:
+ 437               	.LBE4:
+ 438               		.loc 1 553 0 discriminator 1
+ 439 0176 8BB1      		in r24,0xb
+ 440 0178 8927      		eor r24,r25
+ 441 017a 8BB9      		out 0xb,r24
+ 442 017c 00C0      		rjmp .L12
+ 443               		.cfi_endproc
+ 444               	.LFE18:
+ 446               		.section	.text.startup,"ax",@progbits
+ 447               	.global	main
+ 449               	main:
+ 450               	.LFB16:
+ 461:main.c        ****    setup();
+ 451               		.loc 1 461 0
+ 452               		.cfi_startproc
+ 453               	/* prologue: function */
+ 454               	/* frame size = 0 */
+ 455               	/* stack size = 0 */
+ 456               	.L__stack_usage = 0
+ 462:main.c        ****    for (;;) loop ();
+ 457               		.loc 1 462 0
+ 458 0000 0E94 0000 		call setup
+ 459               	.LVL2:
+ 463:main.c        **** }
+ 460               		.loc 1 463 0
+ 461 0004 0E94 0000 		call loop
+ 462               	.LVL3:
+ 463               		.cfi_endproc
+ 464               	.LFE16:
+ 466               	.global	zero
+ 467               		.section .bss
+ 470               	zero:
+ 471 0000 00        		.zero	1
+ 472               	.global	LAST_SHIFT
+ 475               	LAST_SHIFT:
+ 476 0001 00        		.zero	1
+ 477               	.global	SHIFT
+ 480               	SHIFT:
+ 481 0002 00        		.zero	1
+ 482               	.global	BRK
+ 485               	BRK:
+ 486 0003 00        		.zero	1
+ 487               	.global	EXT
+ 490               	EXT:
+ 491 0004 00        		.zero	1
+ 492               	.global	COLUMN_STATUS
+ 493               		.data
+ 496               	COLUMN_STATUS:
+ 497 0000 FF        		.byte	-1
+ 498 0001 FE        		.byte	-2
+ 499 0002 FF        		.byte	-1
+ 500 0003 FE        		.byte	-2
+ 501 0004 FF        		.byte	-1
+ 502 0005 FE        		.byte	-2
+ 503 0006 FF        		.byte	-1
+ 504 0007 FE        		.byte	-2
+ 505 0008 FF        		.byte	-1
+ 508               	cc:
+ 509 0009 05        		.byte	5
+ 510               	.global	PS2Keymap_Shifted
+ 511               		.section	.progmem.data,"a",@progbits
+ 514               	PS2Keymap_Shifted:
+ 515 0000 7F        		.byte	127
+ 516 0001 BD        		.byte	-67
+ 517 0002 7F        		.byte	127
+ 518 0003 38        		.byte	56
+ 519 0004 33        		.byte	51
+ 520 0005 34        		.byte	52
+ 521 0006 31        		.byte	49
+ 522 0007 39        		.byte	57
+ 523 0008 7F        		.byte	127
+ 524 0009 B8        		.byte	-72
+ 525 000a B3        		.byte	-77
+ 526 000b B4        		.byte	-76
+ 527 000c 3D        		.byte	61
+ 528 000d 3A        		.byte	58
+ 529 000e 86        		.byte	-122
+ 530 000f 7F        		.byte	127
+ 531 0010 7F        		.byte	127
+ 532 0011 36        		.byte	54
+ 533 0012 35        		.byte	53
+ 534 0013 7F        		.byte	127
+ 535 0014 30        		.byte	48
+ 536 0015 21        		.byte	33
+ 537 0016 80        		.byte	-128
+ 538 0017 7F        		.byte	127
+ 539 0018 7F        		.byte	127
+ 540 0019 7F        		.byte	127
+ 541 001a 2B        		.byte	43
+ 542 001b 2D        		.byte	45
+ 543 001c 11        		.byte	17
+ 544 001d 2F        		.byte	47
+ 545 001e 95        		.byte	-107
+ 546 001f 7F        		.byte	127
+ 547 0020 7F        		.byte	127
+ 548 0021 1D        		.byte	29
+ 549 0022 2C        		.byte	44
+ 550 0023 18        		.byte	24
+ 551 0024 1E        		.byte	30
+ 552 0025 87        		.byte	-121
+ 553 0026 82        		.byte	-126
+ 554 0027 7F        		.byte	127
+ 555 0028 7F        		.byte	127
+ 556 0029 45        		.byte	69
+ 557 002a 2A        		.byte	42
+ 558 002b 1A        		.byte	26
+ 559 002c 28        		.byte	40
+ 560 002d 23        		.byte	35
+ 561 002e 84        		.byte	-124
+ 562 002f 7F        		.byte	127
+ 563 0030 7F        		.byte	127
+ 564 0031 22        		.byte	34
+ 565 0032 13        		.byte	19
+ 566 0033 1C        		.byte	28
+ 567 0034 1F        		.byte	31
+ 568 0035 29        		.byte	41
+ 569 0036 7F        		.byte	127
+ 570 0037 7F        		.byte	127
+ 571 0038 7F        		.byte	127
+ 572 0039 7F        		.byte	127
+ 573 003a 26        		.byte	38
+ 574 003b 1B        		.byte	27
+ 575 003c 2E        		.byte	46
+ 576 003d 83        		.byte	-125
+ 577 003e 15        		.byte	21
+ 578 003f 7F        		.byte	127
+ 579 0040 7F        		.byte	127
+ 580 0041 96        		.byte	-106
+ 581 0042 25        		.byte	37
+ 582 0043 19        		.byte	25
+ 583 0044 27        		.byte	39
+ 584 0045 85        		.byte	-123
+ 585 0046 88        		.byte	-120
+ 586 0047 7F        		.byte	127
+ 587 0048 7F        		.byte	127
+ 588 0049 92        		.byte	-110
+ 589 004a 97        		.byte	-105
+ 590 004b 20        		.byte	32
+ 591 004c 10        		.byte	16
+ 592 004d 24        		.byte	36
+ 593 004e 8E        		.byte	-114
+ 594 004f 7F        		.byte	127
+ 595 0050 7F        		.byte	127
+ 596 0051 94        		.byte	-108
+ 597 0052 8B        		.byte	-117
+ 598 0053 7F        		.byte	127
+ 599 0054 8C        		.byte	-116
+ 600 0055 8A        		.byte	-118
+ 601 0056 7F        		.byte	127
+ 602 0057 7F        		.byte	127
+ 603 0058 32        		.byte	50
+ 604 0059 35        		.byte	53
+ 605 005a 3B        		.byte	59
+ 606 005b 09        		.byte	9
+ 607 005c 7F        		.byte	127
+ 608 005d 89        		.byte	-119
+ 609 005e 7F        		.byte	127
+ 610 005f 7F        		.byte	127
+ 611 0060 7F        		.byte	127
+ 612 0061 7F        		.byte	127
+ 613 0062 7F        		.byte	127
+ 614 0063 B1        		.byte	-79
+ 615 0064 7F        		.byte	127
+ 616 0065 7F        		.byte	127
+ 617 0066 3C        		.byte	60
+ 618 0067 7F        		.byte	127
+ 619 0068 7F        		.byte	127
+ 620 0069 00        		.byte	0
+ 621 006a 7F        		.byte	127
+ 622 006b 07        		.byte	7
+ 623 006c 03        		.byte	3
+ 624 006d 12        		.byte	18
+ 625 006e 7F        		.byte	127
+ 626 006f 7F        		.byte	127
+ 627 0070 05        		.byte	5
+ 628 0071 16        		.byte	22
+ 629 0072 06        		.byte	6
+ 630 0073 04        		.byte	4
+ 631 0074 01        		.byte	1
+ 632 0075 0D        		.byte	13
+ 633 0076 3E        		.byte	62
+ 634 0077 7F        		.byte	127
+ 635 0078 39        		.byte	57
+ 636 0079 8A        		.byte	-118
+ 637 007a 02        		.byte	2
+ 638 007b 0E        		.byte	14
+ 639 007c 15        		.byte	21
+ 640 007d 08        		.byte	8
+ 641 007e 7F        		.byte	127
+ 642 007f 7F        		.byte	127
+ 643               	.global	PS2Keymap_Normal
+ 646               	PS2Keymap_Normal:
+ 647 0080 7F        		.byte	127
+ 648 0081 BD        		.byte	-67
+ 649 0082 7F        		.byte	127
+ 650 0083 38        		.byte	56
+ 651 0084 33        		.byte	51
+ 652 0085 34        		.byte	52
+ 653 0086 31        		.byte	49
+ 654 0087 3F        		.byte	63
+ 655 0088 7F        		.byte	127
+ 656 0089 B8        		.byte	-72
+ 657 008a B3        		.byte	-77
+ 658 008b B4        		.byte	-76
+ 659 008c 3D        		.byte	61
+ 660 008d 3A        		.byte	58
+ 661 008e 8D        		.byte	-115
+ 662 008f 7F        		.byte	127
+ 663 0090 7F        		.byte	127
+ 664 0091 36        		.byte	54
+ 665 0092 35        		.byte	53
+ 666 0093 7F        		.byte	127
+ 667 0094 30        		.byte	48
+ 668 0095 21        		.byte	33
+ 669 0096 00        		.byte	0
+ 670 0097 7F        		.byte	127
+ 671 0098 7F        		.byte	127
+ 672 0099 7F        		.byte	127
+ 673 009a 2B        		.byte	43
+ 674 009b 2D        		.byte	45
+ 675 009c 11        		.byte	17
+ 676 009d 2F        		.byte	47
+ 677 009e 06        		.byte	6
+ 678 009f 7F        		.byte	127
+ 679 00a0 7F        		.byte	127
+ 680 00a1 1D        		.byte	29
+ 681 00a2 2C        		.byte	44
+ 682 00a3 18        		.byte	24
+ 683 00a4 1E        		.byte	30
+ 684 00a5 07        		.byte	7
+ 685 00a6 02        		.byte	2
+ 686 00a7 7F        		.byte	127
+ 687 00a8 7F        		.byte	127
+ 688 00a9 45        		.byte	69
+ 689 00aa 2A        		.byte	42
+ 690 00ab 1A        		.byte	26
+ 691 00ac 28        		.byte	40
+ 692 00ad 23        		.byte	35
+ 693 00ae 04        		.byte	4
+ 694 00af 7F        		.byte	127
+ 695 00b0 7F        		.byte	127
+ 696 00b1 22        		.byte	34
+ 697 00b2 13        		.byte	19
+ 698 00b3 1C        		.byte	28
+ 699 00b4 1F        		.byte	31
+ 700 00b5 29        		.byte	41
+ 701 00b6 01        		.byte	1
+ 702 00b7 7F        		.byte	127
+ 703 00b8 7F        		.byte	127
+ 704 00b9 7F        		.byte	127
+ 705 00ba 26        		.byte	38
+ 706 00bb 1B        		.byte	27
+ 707 00bc 2E        		.byte	46
+ 708 00bd 03        		.byte	3
+ 709 00be 0D        		.byte	13
+ 710 00bf 7F        		.byte	127
+ 711 00c0 7F        		.byte	127
+ 712 00c1 16        		.byte	22
+ 713 00c2 25        		.byte	37
+ 714 00c3 19        		.byte	25
+ 715 00c4 27        		.byte	39
+ 716 00c5 05        		.byte	5
+ 717 00c6 08        		.byte	8
+ 718 00c7 7F        		.byte	127
+ 719 00c8 7F        		.byte	127
+ 720 00c9 12        		.byte	18
+ 721 00ca 17        		.byte	23
+ 722 00cb 20        		.byte	32
+ 723 00cc 10        		.byte	16
+ 724 00cd 24        		.byte	36
+ 725 00ce 0E        		.byte	14
+ 726 00cf 7F        		.byte	127
+ 727 00d0 7F        		.byte	127
+ 728 00d1 14        		.byte	20
+ 729 00d2 0B        		.byte	11
+ 730 00d3 7F        		.byte	127
+ 731 00d4 0C        		.byte	12
+ 732 00d5 0A        		.byte	10
+ 733 00d6 7F        		.byte	127
+ 734 00d7 7F        		.byte	127
+ 735 00d8 32        		.byte	50
+ 736 00d9 35        		.byte	53
+ 737 00da 3B        		.byte	59
+ 738 00db 0F        		.byte	15
+ 739 00dc 7F        		.byte	127
+ 740 00dd 8F        		.byte	-113
+ 741 00de 7F        		.byte	127
+ 742 00df 7F        		.byte	127
+ 743 00e0 7F        		.byte	127
+ 744 00e1 7F        		.byte	127
+ 745 00e2 7F        		.byte	127
+ 746 00e3 B1        		.byte	-79
+ 747 00e4 7F        		.byte	127
+ 748 00e5 7F        		.byte	127
+ 749 00e6 3C        		.byte	60
+ 750 00e7 7F        		.byte	127
+ 751 00e8 7F        		.byte	127
+ 752 00e9 00        		.byte	0
+ 753 00ea 7F        		.byte	127
+ 754 00eb 07        		.byte	7
+ 755 00ec 03        		.byte	3
+ 756 00ed 12        		.byte	18
+ 757 00ee 7F        		.byte	127
+ 758 00ef 7F        		.byte	127
+ 759 00f0 05        		.byte	5
+ 760 00f1 16        		.byte	22
+ 761 00f2 06        		.byte	6
+ 762 00f3 04        		.byte	4
+ 763 00f4 01        		.byte	1
+ 764 00f5 0D        		.byte	13
+ 765 00f6 3E        		.byte	62
+ 766 00f7 7F        		.byte	127
+ 767 00f8 39        		.byte	57
+ 768 00f9 8A        		.byte	-118
+ 769 00fa 02        		.byte	2
+ 770 00fb 0E        		.byte	14
+ 771 00fc 15        		.byte	21
+ 772 00fd 08        		.byte	8
+ 773 00fe 7F        		.byte	127
+ 774 00ff 7F        		.byte	127
+ 775               		.text
+ 776               	.Letext0:
+ 777               		.file 3 "/usr/lib/avr/include/stdint.h"
+ 778               		.file 4 "ps2keyMap.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 main.c
+     /tmp/ccGwiZLM.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccGwiZLM.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccGwiZLM.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccGwiZLM.s:5      *ABS*:000000000000003b __RAMPZ__
+     /tmp/ccGwiZLM.s:6      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccGwiZLM.s:7      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccGwiZLM.s:13     .text:0000000000000000 __vector_9
+     /tmp/ccGwiZLM.s:496    .data:0000000000000000 COLUMN_STATUS
+     /tmp/ccGwiZLM.s:470    .bss:0000000000000000 zero
+     /tmp/ccGwiZLM.s:49     .text:000000000000001e __vector_1
+     /tmp/ccGwiZLM.s:84     .text:000000000000003c __vector_2
+     /tmp/ccGwiZLM.s:119    .text:000000000000005a __vector_3
+     /tmp/ccGwiZLM.s:154    .text:0000000000000078 __vector_4
+     /tmp/ccGwiZLM.s:189    .text:0000000000000096 __vector_5
+     /tmp/ccGwiZLM.s:224    .text:00000000000000b4 __vector_6
+     /tmp/ccGwiZLM.s:259    .text:00000000000000d2 __vector_7
+     /tmp/ccGwiZLM.s:294    .text:00000000000000f0 __vector_8
+     /tmp/ccGwiZLM.s:329    .text:000000000000010e setup
+     /tmp/ccGwiZLM.s:410    .text:0000000000000162 loop
+     /tmp/ccGwiZLM.s:449    .text.startup:0000000000000000 main
+     /tmp/ccGwiZLM.s:475    .bss:0000000000000001 LAST_SHIFT
+     /tmp/ccGwiZLM.s:480    .bss:0000000000000002 SHIFT
+     /tmp/ccGwiZLM.s:485    .bss:0000000000000003 BRK
+     /tmp/ccGwiZLM.s:490    .bss:0000000000000004 EXT
+     /tmp/ccGwiZLM.s:508    .data:0000000000000009 cc
+     /tmp/ccGwiZLM.s:514    .progmem.data:0000000000000000 PS2Keymap_Shifted
+     /tmp/ccGwiZLM.s:646    .progmem.data:0000000000000080 PS2Keymap_Normal
+
+UNDEFINED SYMBOLS
+__do_copy_data
+__do_clear_bss
