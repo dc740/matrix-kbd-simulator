@@ -56,7 +56,11 @@
 #error "Teensyduino only supports 16, 8, 4, 2, 1 MHz.  Check your settings"
 #endif
 
-
+// DEMO VARIABLES
+uint8_t current_column; //Y0..Y8
+uint8_t current_row; //(X0..X7)
+uint8_t event;
+// END OF DEMO VARIABLES
 
 //       _      __ _      _ _   _
 //    __| |___ / _(_)_ _ (_) |_(_)___ _ _  ___
@@ -87,13 +91,13 @@ void loop(void);
 static volatile uint8_t cc = 5;
 //test to toggle just one bit
 volatile uint8_t COLUMN_STATUS_0 = 255; 
-volatile uint8_t COLUMN_STATUS_1 = 254;
+volatile uint8_t COLUMN_STATUS_1 = 255;
 volatile uint8_t COLUMN_STATUS_2 = 255; 
-volatile uint8_t COLUMN_STATUS_3 = 254;
+volatile uint8_t COLUMN_STATUS_3 = 255;
 volatile uint8_t COLUMN_STATUS_4 = 255; 
-volatile uint8_t COLUMN_STATUS_5 = 254;
+volatile uint8_t COLUMN_STATUS_5 = 255;
 volatile uint8_t COLUMN_STATUS_6 = 255; 
-volatile uint8_t COLUMN_STATUS_7 = 254;
+volatile uint8_t COLUMN_STATUS_7 = 255;
 volatile uint8_t COLUMN_STATUS_8 = 255;
 bool EXT = false;
 bool BRK = false;
@@ -110,60 +114,26 @@ bool LAST_SHIFT = false;
 
 
 
-/*
-  ISR (PCINT0_vect) { Connected to PB0 as a change bit because we are out of external level interrupts
-  DDRC = COLUMN_status [8];
-  }
-*/
 volatile uint8_t zero = 0;
-
-ISR (PCINT0_vect, ISR_NAKED) {
-  asm volatile (                     // 7-9  até aqui
-    "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
-    "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
-    "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
-    
-   "ldi r27,hi8(COLUMN_STATUS_8)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ldi r26,lo8(COLUMN_STATUS_8)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
-    "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta B da PPI
-                                     // até aqui 16 instruções (1us @16Mhz)
-    "in r26, %[_GPIOR1] \n\t"
-    "in r27, %[_GPIOR2] \n\t"
-
-    "sbi %[_PCIFR],1 \n\t"           // reset interrupt bit
-
-    "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
-    "lds __zero_reg__, zero \n\t"
-    "reti \n\t"
-
-    ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
-    [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
-    [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
-    [_PCIFR]  "I" (_SFR_IO_ADDR(PCIFR) )
-    );
-
-};
-
 
 // COLUMN_STATUS[0]
 ISR (INT0_vect, ISR_NAKED) {
-  asm volatile (                     // 7-9  até aqui
-    "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
-    "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
-    "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+  asm volatile (    
+    "in __zero_reg__,__SREG__ \n\t" 
+    "out %[_GPIOR1],r26\n\t"         
+    "out %[_GPIOR2],r27\n\t"         
     
-    "ldi r27,hi8(COLUMN_STATUS_0)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ldi r26,lo8(COLUMN_STATUS_0)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
+    "ldi r27,hi8(COLUMN_STATUS_0)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_0)\n\t"        
+    "ld 26,X \n\t"                   
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta B da PPI
-                                     // até aqui 16 instruções (1us @16Mhz)
+                                     
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
-    "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+    "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
@@ -177,22 +147,22 @@ ISR (INT0_vect, ISR_NAKED) {
 
 // COLUMN_STATUS[1]
 ISR (INT1_vect, ISR_NAKED) {
-  asm volatile (                     // 7-9  até aqui
-    "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
-    "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
-    "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+  asm volatile (    
+    "in __zero_reg__,__SREG__ \n\t" 
+    "out %[_GPIOR1],r26\n\t"         
+    "out %[_GPIOR2],r27\n\t"         
     
-    "ldi r27,hi8(COLUMN_STATUS_1)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ldi r26,lo8(COLUMN_STATUS_1)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
-    "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
-                                     // até aqui 16 instruções (1us @16Mhz)
+    "ldi r27,hi8(COLUMN_STATUS_1)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_1)\n\t"        
+    "ld 26,X \n\t"                   
+    "out %[_PORTC] ,r26 \n\t"         
+                                     
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
-    "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+    "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
@@ -205,22 +175,22 @@ ISR (INT1_vect, ISR_NAKED) {
 };
 // COLUMN_STATUS[2]
 ISR (INT2_vect, ISR_NAKED) {
-  asm volatile (                     // 7-9  até aqui
-    "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
-    "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
-    "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+  asm volatile (    
+    "in __zero_reg__,__SREG__ \n\t" 
+    "out %[_GPIOR1],r26\n\t"         
+    "out %[_GPIOR2],r27\n\t"         
     
-    "ldi r27,hi8(COLUMN_STATUS_2)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ldi r26,lo8(COLUMN_STATUS_2)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
-    "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
-                                     // até aqui 16 instruções (1us @16Mhz)
+    "ldi r27,hi8(COLUMN_STATUS_2)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_2)\n\t"        
+    "ld 26,X \n\t"                   
+    "out %[_PORTC] ,r26 \n\t"         
+                                     
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
-    "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+    "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
@@ -234,22 +204,22 @@ ISR (INT2_vect, ISR_NAKED) {
 
 // COLUMN_STATUS[3]
 ISR (INT3_vect, ISR_NAKED) {
-  asm volatile (                     // 7-9  até aqui
-    "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
-    "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
-    "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+  asm volatile (    
+    "in __zero_reg__,__SREG__ \n\t" 
+    "out %[_GPIOR1],r26\n\t"         
+    "out %[_GPIOR2],r27\n\t"         
     
-    "ldi r27,hi8(COLUMN_STATUS_3)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ldi r26,lo8(COLUMN_STATUS_3)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
-    "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
-                                     // até aqui 16 instruções (1us @16Mhz)
+    "ldi r27,hi8(COLUMN_STATUS_3)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_3)\n\t"        
+    "ld 26,X \n\t"                   
+    "out %[_PORTC] ,r26 \n\t"         
+                                     
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
-    "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+    "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
@@ -263,22 +233,22 @@ ISR (INT3_vect, ISR_NAKED) {
 
 // COLUMN_STATUS[4]
 ISR (INT4_vect, ISR_NAKED) {
-  asm volatile (                     // 7-9  até aqui
-    "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
-    "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
-    "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+  asm volatile (    
+    "in __zero_reg__,__SREG__ \n\t" 
+    "out %[_GPIOR1],r26\n\t"         
+    "out %[_GPIOR2],r27\n\t"         
     
-    "ldi r27,hi8(COLUMN_STATUS_4)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ldi r26,lo8(COLUMN_STATUS_4)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
-    "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
-                                     // até aqui 16 instruções (1us @16Mhz)
+    "ldi r27,hi8(COLUMN_STATUS_4)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_4)\n\t"        
+    "ld 26,X \n\t"                   
+    "out %[_PORTC] ,r26 \n\t"         
+                                     
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
-    "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+    "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
@@ -292,22 +262,22 @@ ISR (INT4_vect, ISR_NAKED) {
 
 // COLUMN_STATUS[5]
 ISR (INT5_vect, ISR_NAKED) {
-  asm volatile (                     // 7-9  até aqui
-    "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
-    "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
-    "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+  asm volatile (    
+    "in __zero_reg__,__SREG__ \n\t" 
+    "out %[_GPIOR1],r26\n\t"         
+    "out %[_GPIOR2],r27\n\t"         
     
-    "ldi r27,hi8(COLUMN_STATUS_5)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ldi r26,lo8(COLUMN_STATUS_5)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
-    "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
-                                     // até aqui 16 instruções (1us @16Mhz)
+    "ldi r27,hi8(COLUMN_STATUS_5)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_5)\n\t"        
+    "ld 26,X \n\t"                   
+    "out %[_PORTC] ,r26 \n\t"         
+                                     
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
-    "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+    "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
@@ -321,22 +291,22 @@ ISR (INT5_vect, ISR_NAKED) {
 
 // COLUMN_STATUS[6]
 ISR (INT6_vect, ISR_NAKED) {
-  asm volatile (                     // 7-9  até aqui
-    "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
-    "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
-    "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+  asm volatile (    
+    "in __zero_reg__,__SREG__ \n\t" 
+    "out %[_GPIOR1],r26\n\t"         
+    "out %[_GPIOR2],r27\n\t"         
     
-    "ldi r27,hi8(COLUMN_STATUS_6)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ldi r26,lo8(COLUMN_STATUS_6)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
-    "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
-                                     // até aqui 16 instruções (1us @16Mhz)
+    "ldi r27,hi8(COLUMN_STATUS_6)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_6)\n\t"        
+    "ld 26,X \n\t"                   
+    "out %[_PORTC] ,r26 \n\t"         
+                                     
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
-    "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+    "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
@@ -350,22 +320,22 @@ ISR (INT6_vect, ISR_NAKED) {
 
 // COLUMN_STATUS[7]
 ISR (INT7_vect, ISR_NAKED) {
-  asm volatile (                     // 7-9  até aqui
-    "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
-    "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
-    "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
+  asm volatile (    
+    "in __zero_reg__,__SREG__ \n\t" 
+    "out %[_GPIOR1],r26\n\t"         
+    "out %[_GPIOR2],r27\n\t"         
     
-    "ldi r27,hi8(COLUMN_STATUS_7)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ldi r26,lo8(COLUMN_STATUS_7)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
-    "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
-                                     // até aqui 16 instruções (1us @16Mhz)
+    "ldi r27,hi8(COLUMN_STATUS_7)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_7)\n\t"        
+    "ld 26,X \n\t"                   
+    "out %[_PORTC] ,r26 \n\t"         
+                                     
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
     "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
-    "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
+    "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
@@ -377,6 +347,42 @@ ISR (INT7_vect, ISR_NAKED) {
 
 };
 
+/*
+  ISR (PCINT0_vect) { Connected to PB0 as a change bit because we are out of external level interrupts
+  DDRC = COLUMN_status [8];
+  }
+*/
+
+ISR (PCINT0_vect, ISR_NAKED) {
+  asm volatile (    
+    "in __zero_reg__,__SREG__ \n\t" 
+    "out %[_GPIOR1],r26\n\t"         
+    "out %[_GPIOR2],r27\n\t"         
+    
+   "ldi r27,hi8(COLUMN_STATUS_8)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_8)\n\t"        
+    "ld 26,X \n\t"                   
+    "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta B da PPI
+                                     
+    "in r26, %[_GPIOR1] \n\t"
+    "in r27, %[_GPIOR2] \n\t"
+
+    "sbi %[_PCIFR],1 \n\t"           // reset interrupt bit
+
+    "out __SREG__,__zero_reg__ \n\t" 
+    "lds __zero_reg__, zero \n\t"
+    "reti \n\t"
+
+    ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
+    [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
+    [_PCIFR]  "I" (_SFR_IO_ADDR(PCIFR) )
+    );
+
+};
+
+
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main (void) {
@@ -386,11 +392,12 @@ int main (void) {
 
 
 
-//    ___      _
-//   / __| ___| |_ _  _ _ __
-//   \__ \/ -_)  _| || | '_ \
-//   |___/\___|\__|\_,_| .__/
-//                     |_|
+/*  ___      _
+   / __| ___| |_ _  _ _ __
+   \__ \/ -_)  _| || | '_ \
+   |___/\___|\__|\_,_| .__/
+                     |_|
+*/
 
 
 void setup(void) {
@@ -440,7 +447,7 @@ void setup(void) {
     TIMSK0 = 0;           // disable Timer 0 interrupts generated by Arduino
     sei();                // enable interrupts
     
-    
+    _delay_ms(10000);
 }
 
 
@@ -448,19 +455,77 @@ void setup(void) {
 
 
 
-//    _                   ____
-//   | |   ___  ___ _ __ / /\ \ 
-//   | |__/ _ \/ _ \ '_ \ |  | |
-//   |____\___/\___/ .__/ |  | |
-//                 |_|   \_\/_/
+/*  _                   ____
+   | |   ___  ___ _ __ / /\ \ 
+   | |__/ _ \/ _ \ '_ \ |  | |
+   |____\___/\___/ .__/ |  | |
+                 |_|   \_\/_/
+*/
+
+inline void set_column(uint8_t column, uint8_t event)
+{
+    switch(current_column){
+        case 0:
+            COLUMN_STATUS_0 = event;
+            break;
+        case 1:
+            COLUMN_STATUS_1 = event;
+            break;
+        case 2:
+            COLUMN_STATUS_2 = event;
+            break;
+        case 3:
+            COLUMN_STATUS_3 = event;
+            break;
+        case 4:
+            COLUMN_STATUS_4 = event;
+            break;
+        case 5:
+            COLUMN_STATUS_5 = event;
+            break;
+        case 6:
+            COLUMN_STATUS_6 = event;
+            break;
+        case 7:
+            COLUMN_STATUS_7 = event;
+            break;
+        case 8:
+            COLUMN_STATUS_8 = event;
+            break;
+        default:
+            break;
+        }
+}
 
 
 
 
 void loop(void) {
-  for (;;) {
-      _delay_ms(1000);
-      PORTD ^= _BV(PD6); //Port D6 (led) toggle
-  }
-}//  loop()
+    // led for demo effect
+    PORTD ^= _BV(PD6); //Port D6 (led) toggle
+    
+    // do new event
+    event = 0xFF;
+    //bitClear
+    event &= ~(1 << current_row);
+    // press button (only the status. the interrupt replicates the status in the port)
+    set_column(current_column, event);
+    _delay_ms(40);
+    // release button
+    set_column(current_column, 0xFF);
+
+    // test next char
+    current_row++;
+    if (current_row >= 8) {
+      current_row = 0;
+      current_column++;
+      if (current_column >= 9) {
+        current_column = 0;
+        _delay_ms(10000); // wait a lot, so we know we start over
+        
+      }
+    }
+    
+    _delay_ms(1000);
+}
 
