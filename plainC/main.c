@@ -85,7 +85,16 @@ void loop(void);
 //
 
 static volatile uint8_t cc = 5;
-volatile uint8_t COLUMN_STATUS[9] = {255, 254, 255, 254, 255, 254, 255, 254, 255};
+//test to toggle just one bit
+volatile uint8_t COLUMN_STATUS_0 = 255; 
+volatile uint8_t COLUMN_STATUS_1 = 254;
+volatile uint8_t COLUMN_STATUS_2 = 255; 
+volatile uint8_t COLUMN_STATUS_3 = 254;
+volatile uint8_t COLUMN_STATUS_4 = 255; 
+volatile uint8_t COLUMN_STATUS_5 = 254;
+volatile uint8_t COLUMN_STATUS_6 = 255; 
+volatile uint8_t COLUMN_STATUS_7 = 254;
+volatile uint8_t COLUMN_STATUS_8 = 255;
 bool EXT = false;
 bool BRK = false;
 bool SHIFT = false;
@@ -107,24 +116,15 @@ bool LAST_SHIFT = false;
   }
 */
 volatile uint8_t zero = 0;
+
 ISR (PCINT0_vect, ISR_NAKED) {
   asm volatile (                     // 7-9  até aqui
     "in __zero_reg__,__SREG__ \n\t"  // 1 Salva registrador de Status
     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
     
-    "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "in r26,8 \n\t"           // 1
-    "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
-                                     // It performs array indexing by adding a (byte) 
-                                     // index to the base of the array. Unfortunately
-                                     // the instruction set lacks immediate addition
-                                     // so a subtraction of the negative base is used
-                                     // instead. The full 16-bit addition is pieced
-                                     // together from separately processing low/high
-                                     // bytes since the AVR also has limited support
-                                     // for 16-bit arithmetic (actually there is an
-                                     // adiw instruction but the range is very limited.) 
+   "ldi r27,hi8(COLUMN_STATUS_8)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+    "ldi r26,lo8(COLUMN_STATUS_8)\n\t"        // 1 Ponteiro X = endereço de Keymap  
     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta B da PPI
                                      // até aqui 16 instruções (1us @16Mhz)
@@ -145,6 +145,7 @@ ISR (PCINT0_vect, ISR_NAKED) {
 
 };
 
+
 // COLUMN_STATUS[0]
 ISR (INT0_vect, ISR_NAKED) {
   asm volatile (                     // 7-9  até aqui
@@ -152,25 +153,15 @@ ISR (INT0_vect, ISR_NAKED) {
     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
     
-    "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "in r26,0 \n\t"           // 1  add 0 since this is the first vector
-    "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
-                                     // It performs array indexing by adding a (byte) 
-                                     // index to the base of the array. Unfortunately
-                                     // the instruction set lacks immediate addition
-                                     // so a subtraction of the negative base is used
-                                     // instead. The full 16-bit addition is pieced
-                                     // together from separately processing low/high
-                                     // bytes since the AVR also has limited support
-                                     // for 16-bit arithmetic (actually there is an
-                                     // adiw instruction but the range is very limited.) 
+    "ldi r27,hi8(COLUMN_STATUS_0)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+    "ldi r26,lo8(COLUMN_STATUS_0)\n\t"        // 1 Ponteiro X = endereço de Keymap  
     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta B da PPI
                                      // até aqui 16 instruções (1us @16Mhz)
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
     "lds __zero_reg__, zero \n\t"
@@ -191,25 +182,15 @@ ISR (INT1_vect, ISR_NAKED) {
     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
     
-    "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "in r26,1 \n\t"           // 1  add 0 since this is the first vector
-    "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
-                                     // It performs array indexing by adding a (byte) 
-                                     // index to the base of the array. Unfortunately
-                                     // the instruction set lacks immediate addition
-                                     // so a subtraction of the negative base is used
-                                     // instead. The full 16-bit addition is pieced
-                                     // together from separately processing low/high
-                                     // bytes since the AVR also has limited support
-                                     // for 16-bit arithmetic (actually there is an
-                                     // adiw instruction but the range is very limited.) 
+    "ldi r27,hi8(COLUMN_STATUS_1)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+    "ldi r26,lo8(COLUMN_STATUS_1)\n\t"        // 1 Ponteiro X = endereço de Keymap  
     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
                                      // até aqui 16 instruções (1us @16Mhz)
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
     "lds __zero_reg__, zero \n\t"
@@ -229,25 +210,15 @@ ISR (INT2_vect, ISR_NAKED) {
     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
     
-    "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "in r26,2 \n\t"           // 1  add 0 since this is the first vector
-    "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
-                                     // It performs array indexing by adding a (byte) 
-                                     // index to the base of the array. Unfortunately
-                                     // the instruction set lacks immediate addition
-                                     // so a subtraction of the negative base is used
-                                     // instead. The full 16-bit addition is pieced
-                                     // together from separately processing low/high
-                                     // bytes since the AVR also has limited support
-                                     // for 16-bit arithmetic (actually there is an
-                                     // adiw instruction but the range is very limited.) 
+    "ldi r27,hi8(COLUMN_STATUS_2)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+    "ldi r26,lo8(COLUMN_STATUS_2)\n\t"        // 1 Ponteiro X = endereço de Keymap  
     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
                                      // até aqui 16 instruções (1us @16Mhz)
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
     "lds __zero_reg__, zero \n\t"
@@ -268,25 +239,15 @@ ISR (INT3_vect, ISR_NAKED) {
     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
     
-    "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "in r26,3 \n\t"           // 1  add 0 since this is the first vector
-    "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
-                                     // It performs array indexing by adding a (byte) 
-                                     // index to the base of the array. Unfortunately
-                                     // the instruction set lacks immediate addition
-                                     // so a subtraction of the negative base is used
-                                     // instead. The full 16-bit addition is pieced
-                                     // together from separately processing low/high
-                                     // bytes since the AVR also has limited support
-                                     // for 16-bit arithmetic (actually there is an
-                                     // adiw instruction but the range is very limited.) 
+    "ldi r27,hi8(COLUMN_STATUS_3)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+    "ldi r26,lo8(COLUMN_STATUS_3)\n\t"        // 1 Ponteiro X = endereço de Keymap  
     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
                                      // até aqui 16 instruções (1us @16Mhz)
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
     "lds __zero_reg__, zero \n\t"
@@ -307,25 +268,15 @@ ISR (INT4_vect, ISR_NAKED) {
     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
     
-    "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "in r26,4 \n\t"           // 1  add 0 since this is the first vector
-    "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
-                                     // It performs array indexing by adding a (byte) 
-                                     // index to the base of the array. Unfortunately
-                                     // the instruction set lacks immediate addition
-                                     // so a subtraction of the negative base is used
-                                     // instead. The full 16-bit addition is pieced
-                                     // together from separately processing low/high
-                                     // bytes since the AVR also has limited support
-                                     // for 16-bit arithmetic (actually there is an
-                                     // adiw instruction but the range is very limited.) 
+    "ldi r27,hi8(COLUMN_STATUS_4)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+    "ldi r26,lo8(COLUMN_STATUS_4)\n\t"        // 1 Ponteiro X = endereço de Keymap  
     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
                                      // até aqui 16 instruções (1us @16Mhz)
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
     "lds __zero_reg__, zero \n\t"
@@ -346,25 +297,15 @@ ISR (INT5_vect, ISR_NAKED) {
     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
     
-    "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "in r26,5 \n\t"           // 1  add 0 since this is the first vector
-    "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
-                                     // It performs array indexing by adding a (byte) 
-                                     // index to the base of the array. Unfortunately
-                                     // the instruction set lacks immediate addition
-                                     // so a subtraction of the negative base is used
-                                     // instead. The full 16-bit addition is pieced
-                                     // together from separately processing low/high
-                                     // bytes since the AVR also has limited support
-                                     // for 16-bit arithmetic (actually there is an
-                                     // adiw instruction but the range is very limited.) 
+    "ldi r27,hi8(COLUMN_STATUS_5)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+    "ldi r26,lo8(COLUMN_STATUS_5)\n\t"        // 1 Ponteiro X = endereço de Keymap  
     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
                                      // até aqui 16 instruções (1us @16Mhz)
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
     "lds __zero_reg__, zero \n\t"
@@ -385,25 +326,15 @@ ISR (INT6_vect, ISR_NAKED) {
     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
     
-    "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "in r26,6 \n\t"           // 1  add 0 since this is the first vector
-    "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
-                                     // It performs array indexing by adding a (byte) 
-                                     // index to the base of the array. Unfortunately
-                                     // the instruction set lacks immediate addition
-                                     // so a subtraction of the negative base is used
-                                     // instead. The full 16-bit addition is pieced
-                                     // together from separately processing low/high
-                                     // bytes since the AVR also has limited support
-                                     // for 16-bit arithmetic (actually there is an
-                                     // adiw instruction but the range is very limited.) 
+    "ldi r27,hi8(COLUMN_STATUS_6)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+    "ldi r26,lo8(COLUMN_STATUS_6)\n\t"        // 1 Ponteiro X = endereço de Keymap  
     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
                                      // até aqui 16 instruções (1us @16Mhz)
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
     "lds __zero_reg__, zero \n\t"
@@ -424,25 +355,15 @@ ISR (INT7_vect, ISR_NAKED) {
     "out %[_GPIOR1],r26\n\t"         // 1 salva registro em 1 ciclo
     "out %[_GPIOR2],r27\n\t"         // 1 salva registro em 1 ciclo
     
-    "ldi r27,hi8(COLUMN_STATUS)\n\t"        // 1 Ponteiro X = endereço de Keymap  
-    "in r26,7 \n\t"           // 1  add 0 since this is the first vector
-    "subi r26, lo8(-(COLUMN_STATUS)) \n\t"  // 1 This is a common construct on the AVR:
-                                     // It performs array indexing by adding a (byte) 
-                                     // index to the base of the array. Unfortunately
-                                     // the instruction set lacks immediate addition
-                                     // so a subtraction of the negative base is used
-                                     // instead. The full 16-bit addition is pieced
-                                     // together from separately processing low/high
-                                     // bytes since the AVR also has limited support
-                                     // for 16-bit arithmetic (actually there is an
-                                     // adiw instruction but the range is very limited.) 
+    "ldi r27,hi8(COLUMN_STATUS_7)\n\t"        // 1 Ponteiro X = endereço de Keymap  
+    "ldi r26,lo8(COLUMN_STATUS_7)\n\t"        // 1 Ponteiro X = endereço de Keymap  
     "ld 26,X \n\t"                   // 2 lê coluna correspondente do mapa de teclas
     "out %[_PORTC] ,r26 \n\t"         // 1 escreve na porta C da PPI
                                      // até aqui 16 instruções (1us @16Mhz)
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit. Needed?
+    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" // restaura registrador de Status
     "lds __zero_reg__, zero \n\t"
@@ -481,18 +402,7 @@ void setup(void) {
     // Enable digital input on ADC ports
     DIDR0 = 0;
     // End of Teensy configuration
-    
-    /*
-    DDRB = (1 << 5);   // pb5 all pins as inputs
-    PORTB = 0x03; // pullups on PS/2 pins
-
-    DDRC =  0xf0; // unused pins as outputs
-    PORTC = 0x00; // no pullups
-
-    DDRD =  0x00; // all matrix columns pins pins as inputs
-    PORTD = 0x00; // all matrix columns pins open (unactive for MSX)
-    */
-    
+        
     //Make sure internal pull up funcionality is enabled:
     //MCUCR &= ~(_BV(PUD)); // not needed. this is the default
 
