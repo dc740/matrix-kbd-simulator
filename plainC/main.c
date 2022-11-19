@@ -376,11 +376,30 @@ ISR (PCINT0_vect, ISR_NAKED) {
    
    //option 2: rjmp is 1 cycle, so that's 2 on the critical path
    "sbic %[_PINB],0\n\t"
-   "rjmp .exit_isr\n\t"
+   "rjmp .raising_edge\n\t"
    //now we go back to the usual ISR that a normal interrupt uses
-    "ldi r27,hi8(COLUMN_STATUS_8)\n\t"        
+   // Falling edge
+    ".falling_edge:\n\t"
+    "ldi r27,hi8(COLUMN_STATUS_8)\n\t"
     "ldi r26,lo8(COLUMN_STATUS_8)\n\t"        
     "ld 26,X \n\t"                   
+    "out %[_PORTC] ,r26 \n\t"
+    "rjmp .exit_isr\n\t"
+    ".raising_edge:\n\t"
+    // now we set the signal back to 0xFF IF no other column is ON (LOW really)
+    "in	r26,%[_PORTD]\n\t" //all Y0..Y3 are located on PORTD
+    "andi r26,0x0F\n\t" //keep Y0..Y3
+    "cpi r26,0x0F\n\t" //if all is HIGH
+    "brne .exit_isr\n\t" //if Y0...Y3 is NOT all HIGH, we exit
+    "in	r26,%[_PORTE]\n\t" //all Y4..Y7 are located on PORTD
+    "andi r26,0xF0\n\t" //keep Y4..Y7
+    "cpi r26,0xF0\n\t" //if all is HIGH
+    "brne .exit_isr\n\t" //if Y4...Y7 is NOT all HIGH, we exit
+    //If D0..D3 AND E4..E7 are HIGH, PB0 is alone and done
+    // so we must switch PORTC back to high (remember we are in a raising edge)
+    // because we are no longer being tested on this column
+    // and keeping it LOW causes issues to all Y8 column
+    "ldi r26,0xFF\n\t"
     "out %[_PORTC] ,r26 \n\t"
     ".exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
@@ -393,6 +412,8 @@ ISR (PCINT0_vect, ISR_NAKED) {
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_PORTD]   "I" (_SFR_IO_ADDR(PORTD)  ),
+    [_PORTE]   "I" (_SFR_IO_ADDR(PORTE)  ),
     [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
@@ -400,6 +421,7 @@ ISR (PCINT0_vect, ISR_NAKED) {
     );
 
 };
+
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -418,6 +440,24 @@ int main (void) {
                      |_|
 */
 
+void setupTimer1() {
+  // Clear registers
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1 = 0;
+
+  // 56939.50177935943 Hz (16000000/((280+1)*1))
+  OCR1A = 280;
+  // CTC
+  TCCR1B |= (1 << WGM12);
+  // Prescaler 1
+  TCCR1B |= (1 << CS10);
+  // Output Compare Match A Interrupt Enable
+  
+  //Enable this from the Y8 interrupt
+  // and disable it in the timer interrupt handler
+  //TIMSK1 |= (1 << OCIE1A);
+}
 
 void setup(void) {
     //Teensy++ 2.0 CPU initialization
