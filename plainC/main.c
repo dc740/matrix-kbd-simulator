@@ -388,19 +388,17 @@ ISR (PCINT0_vect, ISR_NAKED) {
     ".raising_edge:\n\t"
     // now we set the signal back to 0xFF IF no other column is ON (LOW really)
     "in	r26,%[_PORTD]\n\t" //all Y0..Y3 are located on PORTD
+    "in	r27,%[_PORTE]\n\t" //all Y4..Y7 are located on PORTE
     "andi r26,0x0F\n\t" //keep Y0..Y3
-    "cpi r26,0x0F\n\t" //if all is HIGH
-    "brne .exit_isr\n\t" //if Y0...Y3 is NOT all HIGH, we exit
-    "in	r26,%[_PORTE]\n\t" //all Y4..Y7 are located on PORTD
-    "andi r26,0xF0\n\t" //keep Y4..Y7
-    "cpi r26,0xF0\n\t" //if all is HIGH
+    "andi r27,0xF0\n\t" //keep Y4..Y7
+    "or r26,r27\n\t"
+    "cpi r26,0xFF\n\t" //if all is HIGH
     "brne .exit_isr\n\t" //if Y4...Y7 is NOT all HIGH, we exit
     //If D0..D3 AND E4..E7 are HIGH, PB0 is alone and done
     // so we must switch PORTC back to high (remember we are in a raising edge)
     // because we are no longer being tested on this column
     // and keeping it LOW causes issues to all Y8 column
-    "ldi r26,0xFF\n\t"
-    "out %[_PORTC] ,r26 \n\t"
+    "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
     ".exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
