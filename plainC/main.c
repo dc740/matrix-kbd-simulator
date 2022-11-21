@@ -381,14 +381,17 @@ ISR (PCINT0_vect, ISR_NAKED) {
    // Falling edge
     ".falling_edge:\n\t"
     "ldi r27,hi8(COLUMN_STATUS_8)\n\t"
-    "ldi r26,lo8(COLUMN_STATUS_8)\n\t"        
+    "ldi r26,lo8(COLUMN_STATUS_8)\n\t"
     "ld 26,X \n\t"
     "out %[_PORTC] ,r26 \n\t"
     "rjmp .exit_isr\n\t"
     ".raising_edge:\n\t"
     // now we set the signal back to 0xFF IF no other column is ON (LOW really)
-    "in	r26,%[_PORTD]\n\t" //all Y0..Y3 are located on PORTD
-    "in	r27,%[_PORTE]\n\t" //all Y4..Y7 are located on PORTE
+    
+    /*
+     * READING ALL PORTS DIDN'T WORK
+    "in	r26,%[_PIND]\n\t" //all Y0..Y3 are located on PORTD
+    "in	r27,%[_PINE]\n\t" //all Y4..Y7 are located on PORTE
     "andi r26,0x0F\n\t" //keep Y0..Y3
     "andi r27,0xF0\n\t" //keep Y4..Y7
     "or r26,r27\n\t"
@@ -398,9 +401,11 @@ ISR (PCINT0_vect, ISR_NAKED) {
     // so we must switch PORTC back to high (remember we are in a raising edge)
     // because we are no longer being tested on this column
     // and keeping it LOW causes issues to all Y8 column
-    "nop\n\t"
-    "nop\n\t"
-    "nop\n\t"
+    */
+    //if pin D0 is set (OFF), reset PORTC, else jmp exit
+    "sbis %[_PIND],0\n\t"  // THIS DOES NOT DETECT THE CLEAR D0
+    "rjmp .exit_isr\n\t"
+    "ldi r26,0xFF\n\t"
     "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
     ".exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
@@ -413,8 +418,8 @@ ISR (PCINT0_vect, ISR_NAKED) {
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
-    [_PORTD]   "I" (_SFR_IO_ADDR(PORTD)  ),
-    [_PORTE]   "I" (_SFR_IO_ADDR(PORTE)  ),
+    [_PIND]   "I" (_SFR_IO_ADDR(PIND)  ),
+    [_PINE]   "I" (_SFR_IO_ADDR(PINE)  ),
     [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
