@@ -398,6 +398,9 @@ ISR (PCINT0_vect, ISR_NAKED) {
     // so we must switch PORTC back to high (remember we are in a raising edge)
     // because we are no longer being tested on this column
     // and keeping it LOW causes issues to all Y8 column
+    "nop\n\t"
+    "nop\n\t"
+    "nop\n\t"
     "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
     ".exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
