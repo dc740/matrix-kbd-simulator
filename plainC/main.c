@@ -382,7 +382,7 @@ ISR (PCINT0_vect, ISR_NAKED) {
     ".falling_edge:\n\t"
     "ldi r27,hi8(COLUMN_STATUS_8)\n\t"
     "ldi r26,lo8(COLUMN_STATUS_8)\n\t"        
-    "ld 26,X \n\t"                   
+    "ld 26,X \n\t"
     "out %[_PORTC] ,r26 \n\t"
     "rjmp .exit_isr\n\t"
     ".raising_edge:\n\t"
@@ -563,7 +563,7 @@ void loop(void) {
     // led for demo effect
     PORTD ^= _BV(PD6); //Port D6 (led) toggle
     
-    /*
+    //DEMO CODE
     // do new event
     event = 0xFF;
     //bitClear
@@ -584,45 +584,7 @@ void loop(void) {
         _delay_ms(10000); // wait a lot, so we know we start over
         
       }
-    }*/
-    
-    // test pressing the space bar, then going back with the arrows
-    // do new event
-    event = 0xFE; //bit 0 is the space bar
-    // press button (only the status. the interrupt replicates the status in the port)
-    set_column(8, event);
-    _delay_ms(40);
-    // release button
-    set_column(8, 0xFF);
+    }
     _delay_ms(1000);
-    set_column(8, event);
-    _delay_ms(40);
-    // release button
-    set_column(8, 0xFF);
-    _delay_ms(1000);
-    set_column(8, event);
-    _delay_ms(40);
-    // release button
-    set_column(8, 0xFF);
-    _delay_ms(1000);
-    set_column(8, event);
-    _delay_ms(40);
-    // release button
-    set_column(8, 0xFF);
-    _delay_ms(1000);
-    // we pressed the space bar 3 times
-    event = 0xEF; // now I will move the arrow twice back
-    set_column(8, event);
-    _delay_ms(40);
-    // release button
-    set_column(8, 0xFF);
-    _delay_ms(1000);
-    set_column(8, event);
-    _delay_ms(40);
-    // release button
-    set_column(8, 0xFF);
-    _delay_ms(1000);
-    
-    _delay_ms(10000); //and wait 10 seconds
 }
 
