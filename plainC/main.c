@@ -388,8 +388,6 @@ ISR (PCINT0_vect, ISR_NAKED) {
     ".raising_edge:\n\t"
     // now we set the signal back to 0xFF IF no other column is ON (LOW really)
     
-    /*
-     * READING ALL PORTS DIDN'T WORK
     "in	r26,%[_PIND]\n\t" //all Y0..Y3 are located on PORTD
     "in	r27,%[_PINE]\n\t" //all Y4..Y7 are located on PORTE
     "andi r26,0x0F\n\t" //keep Y0..Y3
@@ -401,11 +399,13 @@ ISR (PCINT0_vect, ISR_NAKED) {
     // so we must switch PORTC back to high (remember we are in a raising edge)
     // because we are no longer being tested on this column
     // and keeping it LOW causes issues to all Y8 column
-    */
+   
+    /*
+     * another way to do the same, just checking for D0
     //if pin D0 is set (OFF), reset PORTC, else jmp exit
-    "sbis %[_PIND],0\n\t"  // THIS DOES NOT DETECT THE CLEAR D0
+    "sbis %[_PIND],0\n\t"
     "rjmp .exit_isr\n\t"
-    "ldi r26,0xFF\n\t"
+    "ldi r26,0xFF\n\t"*/
     "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
     ".exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
