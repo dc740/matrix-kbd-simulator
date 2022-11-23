@@ -519,6 +519,7 @@ void loop(void) {
 
 
   for (;;) { /* ever */
+          PORTD ^= _BV(PD6); //Port D6 (led) toggle
     /* Get a keycode from the keyboard and convert and update Keyboard Map */
     code = readPS2();  debug ("["); printHex (code); debug ("]");
 
@@ -704,15 +705,15 @@ void setBit(uint8_t m) {
 //
 void clearMatrix( void )
 {
-  COLUMN_STATUS_0 = 0;
-  COLUMN_STATUS_1 = 0;
-  COLUMN_STATUS_2 = 0;
-  COLUMN_STATUS_3 = 0;
-  COLUMN_STATUS_4 = 0;
-  COLUMN_STATUS_5 = 0;
-  COLUMN_STATUS_6 = 0;
-  COLUMN_STATUS_7 = 0;
-  COLUMN_STATUS_8 = 0;
+  COLUMN_STATUS_0 = 255;
+  COLUMN_STATUS_1 = 255;
+  COLUMN_STATUS_2 = 255;
+  COLUMN_STATUS_3 = 255;
+  COLUMN_STATUS_4 = 255;
+  COLUMN_STATUS_5 = 255;
+  COLUMN_STATUS_6 = 255;
+  COLUMN_STATUS_7 = 255;
+  COLUMN_STATUS_8 = 255;
 }
 
 
