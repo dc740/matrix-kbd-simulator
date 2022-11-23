@@ -675,8 +675,12 @@ void clearBit(uint8_t m) {
   uint8_t lin = ROW_FROM_EVENT(m);
   softSendByte('T');
   uint8_t * column = getColumn(col); 
+  printHex(*column);
+  softSendByte('<<');
+  printHex(lin);
   *column &= ~(1 << lin);
-  if ( (m & 0x80) != 0) COLUMN_STATUS_6 &= ~1;
+  printHex(*column);
+  if ( (m & 0x80) != 0) COLUMN_STATUS_6 &= 0x254;
   softSendByte('\\');
 }
 
@@ -688,8 +692,13 @@ void setBit(uint8_t m) {
   uint8_t col = COLUMN_FROM_EVENT(m) ;
   uint8_t lin = ROW_FROM_EVENT(m);
   softSendByte('_');
+  
   uint8_t * column = getColumn(col); 
+  printHex(*column);
+  softSendByte('<<');
+  printHex(lin);
   *column |= (1 << lin);
+  printHex(*column);
 
   // Activate SHIFT bit accordingly
   if ( (m & 0x80) != 0) COLUMN_STATUS_6 |= 1;
@@ -725,10 +734,10 @@ void updateMatrix(uint8_t k) {
   if (BRK == true) { // break code
     BRK = false;
     if (k == _SHIFT) SHIFT = 0; // Reset SHIFT flag on break code of any shift
-    clearBit(k); //setBit(k);
+    setBit(k);
   } else {  // make code
     if (k == _SHIFT) SHIFT = 1; // Set SHIFT flag on make code of any shift
-    setBit(k); //clearBit(k);
+    clearBit(k);
   }
 }
 
