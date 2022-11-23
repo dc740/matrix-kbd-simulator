@@ -116,197 +116,387 @@ volatile uint8_t zero = 0;
 ISR (INT0_vect, ISR_NAKED) {
   asm volatile (    
     "in __zero_reg__,__SREG__ \n\t" 
-    "out %[_GPIOR1],r26\n\t"         
-    "out %[_GPIOR2],r27\n\t"         
+    "out %[_GPIOR1],r26\n\t" 
+    "out %[_GPIOR2],r27\n\t" 
     
-    "ldi r27,hi8(COLUMN_STATUS_0)\n\t"        
-    "ldi r26,lo8(COLUMN_STATUS_0)\n\t"        
-    "ld 26,X \n\t"                   
-    "out %[_PORTC] ,r26 \n\t"         
-                                     
+    "sbic %[_PIND],0\n\t" //test if PORTD 0 is high or low
+    "rjmp .int0_raising_edge\n\t"
+    
+    
+    ".int0_falling_edge:\n\t"
+    "ldi r27,hi8(COLUMN_STATUS_0)\n\t"
+    "ldi r26,lo8(COLUMN_STATUS_0)\n\t"
+    "ld 26,X \n\t"
+    "out %[_PORTC] ,r26 \n\t"
+    "rjmp .int0_exit_isr\n\t"
+    
+    
+    ".int0_raising_edge:\n\t"
+    // We need to set the signal back to 0xFF if no other column is ON (LOW really)
+    "sbis %[_PINB],0\n\t" //skip exit if B0 is HIGH
+    "rjmp .int0_exit_isr\n\t"
+    "in	r26,%[_PIND]\n\t" //all Y0..Y7 are D0..3 and E4..7
+    "in	r27,%[_PINE]\n\t"
+    "or r26,r27\n\t"      // D4..7 and E0..3 are always low so we can do this
+    "cpi r26,0xFF\n\t" //if all is HIGH
+    "brne .int0_exit_isr\n\t"    
+    //if another column is NOT all HIGH, then itś being tested. we exit
+    //If INT0.7 (D0..3 E4..&) AND B0 are HIGH, this column is alone and since we are in the raising edge
+    // then it's also done
+    // so we must switch PORTC back to high (remember we are in a raising edge)
+    // because we are no longer being tested on this column
+    // and keeping it LOW causes issues with whichever column was tested last (carts do whatever they want)
+    "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
+    
+    ".int0_exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
+    "sbi %[_EIFR],1 \n\t"   // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
+    [_PIND]   "I" (_SFR_IO_ADDR(PIND)  ),
+    [_PINE]   "I" (_SFR_IO_ADDR(PINE)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
     );
-
 };
 
 // COLUMN_STATUS[1]
 ISR (INT1_vect, ISR_NAKED) {
   asm volatile (    
     "in __zero_reg__,__SREG__ \n\t" 
-    "out %[_GPIOR1],r26\n\t"         
-    "out %[_GPIOR2],r27\n\t"         
+    "out %[_GPIOR1],r26\n\t" 
+    "out %[_GPIOR2],r27\n\t" 
     
-    "ldi r27,hi8(COLUMN_STATUS_1)\n\t"        
-    "ldi r26,lo8(COLUMN_STATUS_1)\n\t"        
-    "ld 26,X \n\t"                   
-    "out %[_PORTC] ,r26 \n\t"         
-                                     
+    "sbic %[_PIND],1\n\t" //test if PORTD 0 is high or low
+    "rjmp .int1_raising_edge\n\t"
+    
+    
+    ".int1_falling_edge:\n\t"
+    "ldi r27,hi8(COLUMN_STATUS_1)\n\t"
+    "ldi r26,lo8(COLUMN_STATUS_1)\n\t"
+    "ld 26,X \n\t"
+    "out %[_PORTC] ,r26 \n\t"
+    "rjmp .int1_exit_isr\n\t"
+    
+    
+    ".int1_raising_edge:\n\t"
+    // We need to set the signal back to 0xFF if no other column is ON (LOW really)
+    "sbis %[_PINB],0\n\t" //skip exit if B0 is HIGH
+    "rjmp .int1_exit_isr\n\t"
+    "in	r26,%[_PIND]\n\t" //all Y0..Y7 are D0..3 and E4..7
+    "in	r27,%[_PINE]\n\t"
+    "or r26,r27\n\t"      // D4..7 and E0..3 are always low so we can do this
+    "cpi r26,0xFF\n\t" //if all is HIGH
+    "brne .int1_exit_isr\n\t"    
+    //if another column is NOT all HIGH, then itś being tested. we exit
+    //If INT0.7 (D0..3 E4..&) AND B0 are HIGH, this column is alone and since we are in the raising edge
+    // then it's also done
+    // so we must switch PORTC back to high (remember we are in a raising edge)
+    // because we are no longer being tested on this column
+    // and keeping it LOW causes issues with whichever column was tested last (carts do whatever they want)
+    "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
+    
+    ".int1_exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
+    "sbi %[_EIFR],1 \n\t"   // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
+    [_PIND]   "I" (_SFR_IO_ADDR(PIND)  ),
+    [_PINE]   "I" (_SFR_IO_ADDR(PINE)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
     );
-
 };
 // COLUMN_STATUS[2]
 ISR (INT2_vect, ISR_NAKED) {
   asm volatile (    
     "in __zero_reg__,__SREG__ \n\t" 
-    "out %[_GPIOR1],r26\n\t"         
-    "out %[_GPIOR2],r27\n\t"         
+    "out %[_GPIOR1],r26\n\t" 
+    "out %[_GPIOR2],r27\n\t" 
     
-    "ldi r27,hi8(COLUMN_STATUS_2)\n\t"        
-    "ldi r26,lo8(COLUMN_STATUS_2)\n\t"        
-    "ld 26,X \n\t"                   
-    "out %[_PORTC] ,r26 \n\t"         
-                                     
+    "sbic %[_PIND],2\n\t" //test if PORTD 0 is high or low
+    "rjmp .int2_raising_edge\n\t"
+    
+    
+    ".int2_falling_edge:\n\t"
+    "ldi r27,hi8(COLUMN_STATUS_2)\n\t"
+    "ldi r26,lo8(COLUMN_STATUS_2)\n\t"
+    "ld 26,X \n\t"
+    "out %[_PORTC] ,r26 \n\t"
+    "rjmp .int2_exit_isr\n\t"
+    
+    
+    ".int2_raising_edge:\n\t"
+    // We need to set the signal back to 0xFF if no other column is ON (LOW really)
+    "sbis %[_PINB],0\n\t" //skip exit if B0 is HIGH
+    "rjmp .int2_exit_isr\n\t"
+    "in	r26,%[_PIND]\n\t" //all Y0..Y7 are D0..3 and E4..7
+    "in	r27,%[_PINE]\n\t"
+    "or r26,r27\n\t"      // D4..7 and E0..3 are always low so we can do this
+    "cpi r26,0xFF\n\t" //if all is HIGH
+    "brne .int2_exit_isr\n\t"    
+    //if another column is NOT all HIGH, then itś being tested. we exit
+    //If INT0.7 (D0..3 E4..&) AND B0 are HIGH, this column is alone and since we are in the raising edge
+    // then it's also done
+    // so we must switch PORTC back to high (remember we are in a raising edge)
+    // because we are no longer being tested on this column
+    // and keeping it LOW causes issues with whichever column was tested last (carts do whatever they want)
+    "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
+    
+    ".int2_exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
+    "sbi %[_EIFR],1 \n\t"   // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
+    [_PIND]   "I" (_SFR_IO_ADDR(PIND)  ),
+    [_PINE]   "I" (_SFR_IO_ADDR(PINE)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
     );
-
 };
 
 // COLUMN_STATUS[3]
 ISR (INT3_vect, ISR_NAKED) {
   asm volatile (    
     "in __zero_reg__,__SREG__ \n\t" 
-    "out %[_GPIOR1],r26\n\t"         
-    "out %[_GPIOR2],r27\n\t"         
+    "out %[_GPIOR1],r26\n\t" 
+    "out %[_GPIOR2],r27\n\t" 
     
-    "ldi r27,hi8(COLUMN_STATUS_3)\n\t"        
-    "ldi r26,lo8(COLUMN_STATUS_3)\n\t"        
-    "ld 26,X \n\t"                   
-    "out %[_PORTC] ,r26 \n\t"         
-                                     
+    "sbic %[_PIND],3\n\t" //test if PORTD 0 is high or low
+    "rjmp .int3_raising_edge\n\t"
+    
+    
+    ".int3_falling_edge:\n\t"
+    "ldi r27,hi8(COLUMN_STATUS_3)\n\t"
+    "ldi r26,lo8(COLUMN_STATUS_3)\n\t"
+    "ld 26,X \n\t"
+    "out %[_PORTC] ,r26 \n\t"
+    "rjmp .int3_exit_isr\n\t"
+    
+    
+    ".int3_raising_edge:\n\t"
+    // We need to set the signal back to 0xFF if no other column is ON (LOW really)
+    "sbis %[_PINB],0\n\t" //skip exit if B0 is HIGH
+    "rjmp .int3_exit_isr\n\t"
+    "in	r26,%[_PIND]\n\t" //all Y0..Y7 are D0..3 and E4..7
+    "in	r27,%[_PINE]\n\t"
+    "or r26,r27\n\t"      // D4..7 and E0..3 are always low so we can do this
+    "cpi r26,0xFF\n\t" //if all is HIGH
+    "brne .int3_exit_isr\n\t"    
+    //if another column is NOT all HIGH, then itś being tested. we exit
+    //If INT0.7 (D0..3 E4..&) AND B0 are HIGH, this column is alone and since we are in the raising edge
+    // then it's also done
+    // so we must switch PORTC back to high (remember we are in a raising edge)
+    // because we are no longer being tested on this column
+    // and keeping it LOW causes issues with whichever column was tested last (carts do whatever they want)
+    "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
+    
+    ".int3_exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
+    "sbi %[_EIFR],1 \n\t"   // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
+    [_PIND]   "I" (_SFR_IO_ADDR(PIND)  ),
+    [_PINE]   "I" (_SFR_IO_ADDR(PINE)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
     );
-
 };
 
 // COLUMN_STATUS[4]
 ISR (INT4_vect, ISR_NAKED) {
   asm volatile (    
     "in __zero_reg__,__SREG__ \n\t" 
-    "out %[_GPIOR1],r26\n\t"         
-    "out %[_GPIOR2],r27\n\t"         
+    "out %[_GPIOR1],r26\n\t" 
+    "out %[_GPIOR2],r27\n\t" 
     
-    "ldi r27,hi8(COLUMN_STATUS_4)\n\t"        
-    "ldi r26,lo8(COLUMN_STATUS_4)\n\t"        
-    "ld 26,X \n\t"                   
-    "out %[_PORTC] ,r26 \n\t"         
-                                     
+    "sbic %[_PINE],4\n\t" //test if PORTD 0 is high or low
+    "rjmp .int4_raising_edge\n\t"
+    
+    
+    ".int4_falling_edge:\n\t"
+    "ldi r27,hi8(COLUMN_STATUS_4)\n\t"
+    "ldi r26,lo8(COLUMN_STATUS_4)\n\t"
+    "ld 26,X \n\t"
+    "out %[_PORTC] ,r26 \n\t"
+    "rjmp .int4_exit_isr\n\t"
+    
+    
+    ".int4_raising_edge:\n\t"
+    // We need to set the signal back to 0xFF if no other column is ON (LOW really)
+    "sbis %[_PINB],0\n\t" //skip exit if B0 is HIGH
+    "rjmp .int4_exit_isr\n\t"
+    "in	r26,%[_PIND]\n\t" //all Y0..Y7 are D0..3 and E4..7
+    "in	r27,%[_PINE]\n\t"
+    "or r26,r27\n\t"      // D4..7 and E0..3 are always low so we can do this
+    "cpi r26,0xFF\n\t" //if all is HIGH
+    "brne .int4_exit_isr\n\t"    
+    //if another column is NOT all HIGH, then itś being tested. we exit
+    //If INT0.7 (D0..3 E4..&) AND B0 are HIGH, this column is alone and since we are in the raising edge
+    // then it's also done
+    // so we must switch PORTC back to high (remember we are in a raising edge)
+    // because we are no longer being tested on this column
+    // and keeping it LOW causes issues with whichever column was tested last (carts do whatever they want)
+    "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
+    
+    ".int4_exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
+    "sbi %[_EIFR],1 \n\t"   // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
+    [_PIND]   "I" (_SFR_IO_ADDR(PIND)  ),
+    [_PINE]   "I" (_SFR_IO_ADDR(PINE)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
     );
-
 };
 
 // COLUMN_STATUS[5]
 ISR (INT5_vect, ISR_NAKED) {
   asm volatile (    
     "in __zero_reg__,__SREG__ \n\t" 
-    "out %[_GPIOR1],r26\n\t"         
-    "out %[_GPIOR2],r27\n\t"         
+    "out %[_GPIOR1],r26\n\t" 
+    "out %[_GPIOR2],r27\n\t" 
     
-    "ldi r27,hi8(COLUMN_STATUS_5)\n\t"        
-    "ldi r26,lo8(COLUMN_STATUS_5)\n\t"        
-    "ld 26,X \n\t"                   
-    "out %[_PORTC] ,r26 \n\t"         
-                                     
+    "sbic %[_PINE],5\n\t" //test if PORTD 0 is high or low
+    "rjmp .int5_raising_edge\n\t"
+    
+    
+    ".int5_falling_edge:\n\t"
+    "ldi r27,hi8(COLUMN_STATUS_5)\n\t"
+    "ldi r26,lo8(COLUMN_STATUS_5)\n\t"
+    "ld 26,X \n\t"
+    "out %[_PORTC] ,r26 \n\t"
+    "rjmp .int5_exit_isr\n\t"
+    
+    
+    ".int5_raising_edge:\n\t"
+    // We need to set the signal back to 0xFF if no other column is ON (LOW really)
+    "sbis %[_PINB],0\n\t" //skip exit if B0 is HIGH
+    "rjmp .int5_exit_isr\n\t"
+    "in	r26,%[_PIND]\n\t" //all Y0..Y7 are D0..3 and E4..7
+    "in	r27,%[_PINE]\n\t"
+    "or r26,r27\n\t"      // D4..7 and E0..3 are always low so we can do this
+    "cpi r26,0xFF\n\t" //if all is HIGH
+    "brne .int5_exit_isr\n\t"    
+    //if another column is NOT all HIGH, then itś being tested. we exit
+    //If INT0.7 (D0..3 E4..&) AND B0 are HIGH, this column is alone and since we are in the raising edge
+    // then it's also done
+    // so we must switch PORTC back to high (remember we are in a raising edge)
+    // because we are no longer being tested on this column
+    // and keeping it LOW causes issues with whichever column was tested last (carts do whatever they want)
+    "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
+    
+    ".int5_exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
+    "sbi %[_EIFR],1 \n\t"   // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
+    [_PIND]   "I" (_SFR_IO_ADDR(PIND)  ),
+    [_PINE]   "I" (_SFR_IO_ADDR(PINE)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
     );
-
 };
 
 // COLUMN_STATUS[6]
 ISR (INT6_vect, ISR_NAKED) {
   asm volatile (    
     "in __zero_reg__,__SREG__ \n\t" 
-    "out %[_GPIOR1],r26\n\t"         
-    "out %[_GPIOR2],r27\n\t"         
+    "out %[_GPIOR1],r26\n\t" 
+    "out %[_GPIOR2],r27\n\t" 
     
-    "ldi r27,hi8(COLUMN_STATUS_6)\n\t"        
-    "ldi r26,lo8(COLUMN_STATUS_6)\n\t"        
-    "ld 26,X \n\t"                   
-    "out %[_PORTC] ,r26 \n\t"         
-                                     
+    "sbic %[_PINE],6\n\t" //test if PORTD 0 is high or low
+    "rjmp .int6_raising_edge\n\t"
+    
+    
+    ".int6_falling_edge:\n\t"
+    "ldi r27,hi8(COLUMN_STATUS_6)\n\t"
+    "ldi r26,lo8(COLUMN_STATUS_6)\n\t"
+    "ld 26,X \n\t"
+    "out %[_PORTC] ,r26 \n\t"
+    "rjmp .int6_exit_isr\n\t"
+    
+    
+    ".int6_raising_edge:\n\t"
+    // We need to set the signal back to 0xFF if no other column is ON (LOW really)
+    "sbis %[_PINB],0\n\t" //skip exit if B0 is HIGH
+    "rjmp .int6_exit_isr\n\t"
+    "in	r26,%[_PIND]\n\t" //all Y0..Y7 are D0..3 and E4..7
+    "in	r27,%[_PINE]\n\t"
+    "or r26,r27\n\t"      // D4..7 and E0..3 are always low so we can do this
+    "cpi r26,0xFF\n\t" //if all is HIGH
+    "brne .int6_exit_isr\n\t"    
+    //if another column is NOT all HIGH, then itś being tested. we exit
+    //If INT0.7 (D0..3 E4..&) AND B0 are HIGH, this column is alone and since we are in the raising edge
+    // then it's also done
+    // so we must switch PORTC back to high (remember we are in a raising edge)
+    // because we are no longer being tested on this column
+    // and keeping it LOW causes issues with whichever column was tested last (carts do whatever they want)
+    "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
+    
+    ".int6_exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
+    "sbi %[_EIFR],1 \n\t"   // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
+    [_PIND]   "I" (_SFR_IO_ADDR(PIND)  ),
+    [_PINE]   "I" (_SFR_IO_ADDR(PINE)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
@@ -318,29 +508,56 @@ ISR (INT6_vect, ISR_NAKED) {
 ISR (INT7_vect, ISR_NAKED) {
   asm volatile (    
     "in __zero_reg__,__SREG__ \n\t" 
-    "out %[_GPIOR1],r26\n\t"         
-    "out %[_GPIOR2],r27\n\t"         
+    "out %[_GPIOR1],r26\n\t" 
+    "out %[_GPIOR2],r27\n\t" 
     
-    "ldi r27,hi8(COLUMN_STATUS_7)\n\t"        
-    "ldi r26,lo8(COLUMN_STATUS_7)\n\t"        
-    "ld 26,X \n\t"                   
-    "out %[_PORTC] ,r26 \n\t"         
-                                     
+    "sbic %[_PINE],7\n\t" //test if PORTD 0 is high or low
+    "rjmp .int7_raising_edge\n\t"
+    
+    
+    ".int7_falling_edge:\n\t"
+    "ldi r27,hi8(COLUMN_STATUS_7)\n\t"
+    "ldi r26,lo8(COLUMN_STATUS_7)\n\t"
+    "ld 26,X \n\t"
+    "out %[_PORTC] ,r26 \n\t"
+    "rjmp .int7_exit_isr\n\t"
+    
+    
+    ".int7_raising_edge:\n\t"
+    // We need to set the signal back to 0xFF if no other column is ON (LOW really)
+    "sbis %[_PINB],0\n\t" //skip exit if B0 is HIGH
+    "rjmp .int7_exit_isr\n\t"
+    "in	r26,%[_PIND]\n\t" //all Y0..Y7 are D0..3 and E4..7
+    "in	r27,%[_PINE]\n\t"
+    "or r26,r27\n\t"      // D4..7 and E0..3 are always low so we can do this
+    "cpi r26,0xFF\n\t" //if all is HIGH
+    "brne .int7_exit_isr\n\t"    
+    //if another column is NOT all HIGH, then itś being tested. we exit
+    //If INT0.7 (D0..3 E4..&) AND B0 are HIGH, this column is alone and since we are in the raising edge
+    // then it's also done
+    // so we must switch PORTC back to high (remember we are in a raising edge)
+    // because we are no longer being tested on this column
+    // and keeping it LOW causes issues with whichever column was tested last (carts do whatever they want)
+    "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
+    
+    ".int7_exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
-    "sbi %[_EIFR],1 \n\t"           // reset interrupt bit.
+    "sbi %[_EIFR],1 \n\t"   // reset interrupt bit.
 
     "out __SREG__,__zero_reg__ \n\t" 
     "lds __zero_reg__, zero \n\t"
     "reti \n\t"
 
     ::[_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ),
+    [_PINB]   "I" (_SFR_IO_ADDR(PINB)  ),
+    [_PIND]   "I" (_SFR_IO_ADDR(PIND)  ),
+    [_PINE]   "I" (_SFR_IO_ADDR(PINE)  ),
     [_GPIOR1] "I" (_SFR_IO_ADDR(GPIOR1)),
     [_GPIOR2] "I" (_SFR_IO_ADDR(GPIOR2)), 
     [_EIFR]  "I" (_SFR_IO_ADDR(EIFR) )
     );
-
 };
 
 /*
@@ -372,16 +589,16 @@ ISR (PCINT0_vect, ISR_NAKED) {
    
    //option 2: rjmp is 1 cycle, so that's 2 on the critical path
    "sbic %[_PINB],0\n\t"
-   "rjmp .raising_edge\n\t"
+   "rjmp .pcint0_raising_edge\n\t"
    //now we go back to the usual ISR that a normal interrupt uses
    // Falling edge
-    ".falling_edge:\n\t"
+    ".pcint0_falling_edge:\n\t"
     "ldi r27,hi8(COLUMN_STATUS_8)\n\t"
     "ldi r26,lo8(COLUMN_STATUS_8)\n\t"
     "ld 26,X \n\t"
     "out %[_PORTC] ,r26 \n\t"
-    "rjmp .exit_isr\n\t"
-    ".raising_edge:\n\t"
+    "rjmp .pcint0_exit_isr\n\t"
+    ".pcint0_raising_edge:\n\t"
     // now we set the signal back to 0xFF IF no other column is ON (LOW really)
     
     "in	r26,%[_PIND]\n\t" //all Y0..Y3 are located on PORTD
@@ -390,7 +607,7 @@ ISR (PCINT0_vect, ISR_NAKED) {
     //"andi r27,0xF0\n\t" //keep Y4..Y7
     "or r26,r27\n\t"
     "cpi r26,0xFF\n\t" //if all is HIGH
-    "brne .exit_isr\n\t" //if Y4...Y7 is NOT all HIGH, we exit
+    "brne .pcint0_exit_isr\n\t" //if Y4...Y7 is NOT all HIGH, we exit
     //If D0..D3 AND E4..E7 are HIGH, PB0 is alone and done
     // so we must switch PORTC back to high (remember we are in a raising edge)
     // because we are no longer being tested on this column
@@ -403,7 +620,7 @@ ISR (PCINT0_vect, ISR_NAKED) {
     "rjmp .exit_isr\n\t"
     "ldi r26,0xFF\n\t"*/
     "out %[_PORTC] ,r26 \n\t" //r26 is 0xFF
-    ".exit_isr:"
+    ".pcint0_exit_isr:"
     "in r26, %[_GPIOR1] \n\t"
     "in r27, %[_GPIOR2] \n\t"
 
@@ -478,8 +695,10 @@ void setup(void) {
     // Configure Interrupts
     EIMSK  = 0x0; // disable external interrupts when configuring
     EIFR = 0x0; // clear any pending interrupt
-    EICRA = 0xAA; //falling edge on INT0..3
-    EICRB = 0xAA; //falling edge on INT4..7
+    EICRA = 0x55; //any edge on INT0..3
+    EICRB = 0x55; //any edge on INT4..7
+    //EICRA = 0xAA; //falling edge on INT0..3
+    //EICRB = 0xAA; //falling edge on INT4..7
     EIMSK  = 0xFF; // enable all external interrupts
 
 
@@ -676,7 +895,7 @@ void clearBit(uint8_t m) {
   softSendByte('T');
   uint8_t * column = getColumn(col); 
   printHex(*column);
-  softSendByte('<<');
+  softSendByte('<');
   printHex(lin);
   *column &= ~(1 << lin);
   printHex(*column);
@@ -695,7 +914,7 @@ void setBit(uint8_t m) {
   
   uint8_t * column = getColumn(col); 
   printHex(*column);
-  softSendByte('<<');
+  softSendByte('<');
   printHex(lin);
   *column |= (1 << lin);
   printHex(*column);
