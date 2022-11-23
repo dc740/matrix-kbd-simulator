@@ -12,7 +12,7 @@
 #define column5  5 << 4
 #define column6  6 << 4
 #define column7  7 << 4
-#define column8  0 << 4
+#define column8  8 << 4
 
 #define _NONE          0x7F
 #define _SH            0x80

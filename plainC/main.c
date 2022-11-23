@@ -31,8 +31,6 @@
 #include "msxKeyboardMatrix.h"
 #include "ps2keyMap.h"
 #include "myPS2.h"             // pin definition on the file
-//#include <ps2.h>
-//PS2 kbd(9, 8);
 
 #define NOP() do { __asm__ __volatile__ ("nop"); } while (0)
 
@@ -522,12 +520,12 @@ void loop(void) {
 
   for (;;) { /* ever */
     /* Get a keycode from the keyboard and convert and update Keyboard Map */
-    code = readPS2();  //debug ("["); printHex (code); debug ("]");
+    code = readPS2();  debug ("["); printHex (code); debug ("]");
 
     // Clean keyboard matrix on buffer overflows
 
     if ( (code == 0x00) | (code == 0xff) ) {  // Error codes
-      //debug ("!\n");
+      debug ("!\n");
       clearMatrix();
 
     } else { // not error codes
@@ -571,7 +569,7 @@ void loop(void) {
 
 
         updateMatrix(m);
-        //debug ("<"); printHex (m); debug (">\n");        
+        debug ("<"); printHex (m); debug (">\n");        
       }
 
     } // end of "not error codes"
