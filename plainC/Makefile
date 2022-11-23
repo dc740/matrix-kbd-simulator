@@ -454,6 +454,9 @@ program_arduino_uno: $(TARGET).hex $(TARGET).eep
 program_teensy: $(TARGET).hex $(TARGET).eep
 	teensy_loader_cli --mcu=$(MCU) -w -v $(TARGET).hex
 
+generate_clangd: clean
+	bear -- make
+
 
 # Generate avr-gdb config/init file which does the following:
 #     define the reset signal, load the target file, connect to target, and set 

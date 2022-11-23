@@ -67,12 +67,11 @@ uint8_t event=0xFF;
 //   / _` / -_)  _| | ' \| |  _| / _ \ ' \(_-<
 //   \__,_\___|_| |_|_||_|_|\__|_\___/_||_/__/
 //
-#define Keymap_Size 16  // 16 up to lines of keys for Hotbit 
  
-
+void setColumn(uint8_t column, uint8_t event);
+uint8_t* getColumn(uint8_t column);
 void printBin ( uint8_t l);
 void printHex ( uint8_t l); 
-void printMatrix(void );
 void softSendByte (uint8_t dado);
 void debug( char *s);
 void initsoftSend(void);
@@ -89,16 +88,15 @@ void loop(void);
 //
 
 static volatile uint8_t cc = 5;
-//test to toggle just one bit
-volatile uint8_t COLUMN_STATUS_0 = 255; 
-volatile uint8_t COLUMN_STATUS_1 = 255;
-volatile uint8_t COLUMN_STATUS_2 = 255; 
-volatile uint8_t COLUMN_STATUS_3 = 255;
-volatile uint8_t COLUMN_STATUS_4 = 255; 
-volatile uint8_t COLUMN_STATUS_5 = 255;
-volatile uint8_t COLUMN_STATUS_6 = 255; 
-volatile uint8_t COLUMN_STATUS_7 = 255;
-volatile uint8_t COLUMN_STATUS_8 = 255;
+uint8_t COLUMN_STATUS_0 = 255; 
+uint8_t COLUMN_STATUS_1 = 255;
+uint8_t COLUMN_STATUS_2 = 255; 
+uint8_t COLUMN_STATUS_3 = 255;
+uint8_t COLUMN_STATUS_4 = 255; 
+uint8_t COLUMN_STATUS_5 = 255;
+uint8_t COLUMN_STATUS_6 = 255; 
+uint8_t COLUMN_STATUS_7 = 255;
+uint8_t COLUMN_STATUS_8 = 255;
 bool EXT = false;
 bool BRK = false;
 bool SHIFT = false;
@@ -390,8 +388,8 @@ ISR (PCINT0_vect, ISR_NAKED) {
     
     "in	r26,%[_PIND]\n\t" //all Y0..Y3 are located on PORTD
     "in	r27,%[_PINE]\n\t" //all Y4..Y7 are located on PORTE
-    "andi r26,0x0F\n\t" //keep Y0..Y3
-    "andi r27,0xF0\n\t" //keep Y4..Y7
+    //"andi r26,0x0F\n\t" //keep Y0..Y3
+    //"andi r27,0xF0\n\t" //keep Y4..Y7
     "or r26,r27\n\t"
     "cpi r26,0xFF\n\t" //if all is HIGH
     "brne .exit_isr\n\t" //if Y4...Y7 is NOT all HIGH, we exit
@@ -529,7 +527,81 @@ void setup(void) {
                  |_|   \_\/_/
 */
 
-inline void set_column(uint8_t column, uint8_t event)
+
+
+
+
+
+void loop(void) {
+  uint8_t code, m;
+
+
+
+  for (;;) { /* ever */
+    /* Get a keycode from the keyboard and convert and update Keyboard Map */
+    code = readPS2();  //debug ("["); printHex (code); debug ("]");
+
+    // Clean keyboard matrix on buffer overflows
+
+    if ( (code == 0x00) | (code == 0xff) ) {  // Error codes
+      //debug ("!\n");
+      clearMatrix();
+
+    } else { // not error codes
+
+
+      if (code == 0xE0) {
+        EXT = true; //Serial.println ("extend");
+      } else if (code == 0xF0) {
+        BRK = true; //Serial.println ("release");
+      } else {
+        if (EXT == true) { // extended keys
+          EXT = false;
+          switch (code) {
+            case _PS2_UP_ARROW:     m = _UP      ; break;
+            case _PS2_DOWN_ARROW:   m = _DOWN    ; break;
+            case _PS2_LEFT_ARROW:   m = _LEFT    ; break;
+            case _PS2_RIGHT_ARROW:  m = _RIGHT   ; break;
+            case _PS2_RIGHT_ALT:    m = _CODE    ; break;
+            case _PS2_RIGHT_CTRL:   m = _CONTROL ; break;
+            case _PS2_LEFT_GUI:     m = _SPACE   ; break;
+            case _PS2_RIGHT_GUI:    m = _SPACE   ; break;
+            case _PS2_KPSLASH:      m = _KPSLASH ; break;
+            case _PS2_KPENTER:      m = _ENTER   ; break;
+            case _PS2_END:          m = _STOP    ; break;
+            case _PS2_HOME:         m = _HOME    ; break;
+            case _PS2_INSERT:       m = _INSERT  ; break;
+            case _PS2_DELETE:       m = _DELETE  ; break;
+
+            default:                m = _NONE    ; break;
+          } // switch
+        } else { // normal set
+          if (code == 0x83) code = 0x63; // manter tabela menor que 128 caracteres
+
+          if (code < 128) {
+            if (SHIFT == false) m = pgm_read_byte(PS2Keymap_Normal + code);
+            else m = pgm_read_byte(PS2Keymap_Shifted + code);
+          } else {
+            m = _NONE;
+          }
+        }  // end of normal set
+
+
+        updateMatrix(m);
+        //debug ("<"); printHex (m); debug (">\n");        
+      }
+
+    } // end of "not error codes"
+  }
+}
+
+//     __              _   _
+//    / _|_  _ _ _  __| |_(_)___ _ _  ___
+//   |  _| || | ' \/ _|  _| / _ \ ' \(_-<
+//   |_|  \_,_|_||_\__|\__|_\___/_||_/__/
+//
+
+inline void setColumn(uint8_t column, uint8_t event)
 {
     switch(column){
         case 0:
@@ -564,35 +636,167 @@ inline void set_column(uint8_t column, uint8_t event)
         }
 }
 
+inline uint8_t* getColumn(uint8_t column)
+{
+    uint8_t* selectedColumn = &COLUMN_STATUS_0;
+    switch(column){
+        case 0:
+            selectedColumn = &COLUMN_STATUS_0;
+            break;
+        case 1:
+            selectedColumn = &COLUMN_STATUS_1;
+            break;
+        case 2:
+            selectedColumn = &COLUMN_STATUS_2;
+            break;
+        case 3:
+            selectedColumn = &COLUMN_STATUS_3;
+            break;
+        case 4:
+            selectedColumn = &COLUMN_STATUS_4;
+            break;
+        case 5:
+            selectedColumn = &COLUMN_STATUS_5;
+            break;
+        case 6:
+            selectedColumn = &COLUMN_STATUS_6;
+            break;
+        case 7:
+            selectedColumn = &COLUMN_STATUS_7;
+            break;
+        case 8:
+            selectedColumn = &COLUMN_STATUS_8;
+            break;
+        default:
+            break;
+        }
+    return selectedColumn;
+}
+
+//
+// Initialize Keyboard
+//
+void initalizeKeyboard( void )
+{
+  uint8_t _ack;
+  writePS2(0xff);  // send reset code
+  _ack = readPS2();  // byte, kbd does self test
+  _ack = readPS2();  // another ack when self test is done
+}
+
+
+//
+// Activate the key addressed by m
+//
+void clearBit(uint8_t m) {
+  uint8_t col = COLUMN_FROM_EVENT(m) ;
+  uint8_t lin = ROW_FROM_EVENT(m);
+  softSendByte('T');
+  uint8_t * column = getColumn(col); 
+  *column &= ~(1 << lin);
+  if ( (m & 0x80) != 0) COLUMN_STATUS_6 &= ~1;
+  softSendByte('\\');
+}
+
+
+//
+// Deactivate the key addressed by m
+//
+void setBit(uint8_t m) {
+  uint8_t col = COLUMN_FROM_EVENT(m) ;
+  uint8_t lin = ROW_FROM_EVENT(m);
+  softSendByte('_');
+  uint8_t * column = getColumn(col); 
+  *column |= (1 << lin);
+
+  // Activate SHIFT bit accordingly
+  if ( (m & 0x80) != 0) COLUMN_STATUS_6 |= 1;
+  softSendByte('/');
+  
+}
 
 
 
-void loop(void) {
-    // led for demo effect
-    PORTD ^= _BV(PD6); //Port D6 (led) toggle
-    
-    //DEMO CODE
-    // do new event
-    event = 0xFF;
-    //bitClear
-    event &= ~(1 << current_row);
-    // press button (only the status. the interrupt replicates the status in the port)
-    set_column(current_column, event);
-    _delay_ms(40);
-    // release button
-    set_column(current_column, 0xFF);
 
-    // test next char
-    current_row++;
-    if (current_row >= 8) {
-      current_row = 0;
-      current_column++;
-      if (current_column >= 9) {
-        current_column = 0;
-        _delay_ms(10000); // wait a lot, so we know we start over
-        
-      }
-    }
-    _delay_ms(1000);
+//
+// Clear the Keyboard Matrix
+//
+void clearMatrix( void )
+{
+  COLUMN_STATUS_0 = 0;
+  COLUMN_STATUS_1 = 0;
+  COLUMN_STATUS_2 = 0;
+  COLUMN_STATUS_3 = 0;
+  COLUMN_STATUS_4 = 0;
+  COLUMN_STATUS_5 = 0;
+  COLUMN_STATUS_6 = 0;
+  COLUMN_STATUS_7 = 0;
+  COLUMN_STATUS_8 = 0;
+}
+
+
+
+//
+// Update the Keyboard Matrix based on a map code for a row and a line
+//
+void updateMatrix(uint8_t k) {
+  if (BRK == true) { // break code
+    BRK = false;
+    if (k == _SHIFT) SHIFT = 0; // Reset SHIFT flag on break code of any shift
+    clearBit(k); //setBit(k);
+  } else {  // make code
+    if (k == _SHIFT) SHIFT = 1; // Set SHIFT flag on make code of any shift
+    setBit(k); //clearBit(k);
+  }
+}
+
+
+void initsoftSend(void) {
+  DDRUART |= (1 << BITUART);
+  PORTUART |= (1 << BITUART);
+}
+
+void debug( char *s) {
+  char *ptr = s;
+
+  while (*ptr) {
+    if (*ptr == '\n') softSendByte ('\r');
+    softSendByte( *ptr);
+    ptr++;
+  }
+
+
+}
+void softSendByte (uint8_t dado) {
+  // 9600 bauds
+  uint16_t shiftRegister;
+  uint8_t i;
+  // 15 14 13 12 11 10 9  8  7  6  5  4  3  2  1  0
+  shiftRegister  = 0xff00 | (uint16_t)dado;  // 1  1  1  1  1  1  1  1 [         dado         ]
+  shiftRegister <<= 1;                       // 1  1  1  1  1  1  1 [         dado         ] 0
+
+  for (i = 0; i < 12; i++) { // 2 stop bits
+    if (shiftRegister & 1)  PORTUART |= (1 << BITUART); else PORTUART &= ~(1 << BITUART);
+    shiftRegister >>= 1;
+    _delay_us (BIT_DELAY);
+  }
+}
+
+void printHex ( uint8_t h) {
+  char table[16] = {"0123456789ABCDEF"};
+  uint8_t nibble = h >> 4;
+  softSendByte (table [ nibble ] );
+  softSendByte (table [ h & 0x0f]  );
+
+
+}
+
+void printBin ( uint8_t l) {
+  uint8_t mask = 0x80;
+  for (uint8_t j = 0; j < 8; j++) {
+    if (l & mask) softSendByte ('1'); else softSendByte ('0');
+    softSendByte (' ');
+    mask >>= 1;
+  }
 }
 
