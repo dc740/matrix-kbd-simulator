@@ -1,0 +1,50 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/avr-gcc",
+      "-c",
+      "-mmcu=at90usb1286",
+      "-I.",
+      "-gdwarf-2",
+      "-DF_CPU=16000000UL",
+      "-O2",
+      "-funsigned-char",
+      "-funsigned-bitfields",
+      "-fpack-struct",
+      "-fshort-enums",
+      "-Wall",
+      "-Wa,-adhlns=./main.lst",
+      "-std=gnu99",
+      "-o",
+      "main.o",
+      "main.c"
+    ],
+    "directory": "/home/dc/src/MSX/matrix-kbd-simulator/plainC",
+    "file": "/home/dc/src/MSX/matrix-kbd-simulator/plainC/main.c",
+    "output": "/home/dc/src/MSX/matrix-kbd-simulator/plainC/main.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/avr-gcc",
+      "-c",
+      "-mmcu=at90usb1286",
+      "-I.",
+      "-gdwarf-2",
+      "-DF_CPU=16000000UL",
+      "-O2",
+      "-funsigned-char",
+      "-funsigned-bitfields",
+      "-fpack-struct",
+      "-fshort-enums",
+      "-Wall",
+      "-Wa,-adhlns=./myPS2.lst",
+      "-std=gnu99",
+      "-o",
+      "myPS2.o",
+      "myPS2.c"
+    ],
+    "directory": "/home/dc/src/MSX/matrix-kbd-simulator/plainC",
+    "file": "/home/dc/src/MSX/matrix-kbd-simulator/plainC/myPS2.c",
+    "output": "/home/dc/src/MSX/matrix-kbd-simulator/plainC/myPS2.o"
+  }
+]

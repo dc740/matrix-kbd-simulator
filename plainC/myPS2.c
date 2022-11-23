@@ -8,15 +8,15 @@
 #include "myPS2.h"
 
 // Hardware definition
-#define DAT_DDR  DDRA
-#define DAT_PIN  PINA
-#define DAT_PORT PORTA
-#define DAT_BIT  1
+#define DAT_DDR  DDRB
+#define DAT_PIN  PINB
+#define DAT_PORT PORTB
+#define DAT_BIT  2
 
-#define CLK_DDR  DDRA
-#define CLK_PIN  PINA
-#define CLK_PORT PORTA
-#define CLK_BIT  0
+#define CLK_DDR  DDRB
+#define CLK_PIN  PINB
+#define CLK_PORT PORTB
+#define CLK_BIT  1
 
 #define dropDAT()    do { DAT_DDR  |=  (1 << DAT_BIT); DAT_PORT &= ~(1 << DAT_BIT); } while(0)
 #define dropCLK()    do { CLK_DDR  |=  (1 << CLK_BIT); CLK_PORT &= ~(1 << CLK_BIT); } while(0)
