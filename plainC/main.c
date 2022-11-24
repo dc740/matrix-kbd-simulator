@@ -899,7 +899,6 @@ void clearBit(uint8_t m) {
   printHex(lin);
   *column &= ~(1 << lin);
   printHex(*column);
-  if ( (m & 0x80) != 0) COLUMN_STATUS_6 &= 0x254;
   softSendByte('\\');
 }
 
@@ -919,8 +918,6 @@ void setBit(uint8_t m) {
   *column |= (1 << lin);
   printHex(*column);
 
-  // Activate SHIFT bit accordingly
-  if ( (m & 0x80) != 0) COLUMN_STATUS_6 |= 1;
   softSendByte('/');
   
 }
