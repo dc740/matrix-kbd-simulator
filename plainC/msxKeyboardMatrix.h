@@ -116,36 +116,38 @@
 #define _KPCOMMA      ( _NONE       )    
 #define _KPDOT        ( _NONE       )    
 
-// Shifted
-#define _F6           ( _SH + _F1 )        // F6
-#define _F7           ( _SH + _F2 )        // F7
-#define _F8           ( _SH + _F3 )        // F8
-#define _F9           ( _SH + _F4 )        // F9
-#define _F10          ( _SH + _F5 )        // F10
-
-#define _EXCLAMATION  ( _SH + _1  )         // !
-#define _QUOTE        ( _SH + _2  )         // "
-#define _NUMBER       ( _SH + _3  )         // #
-#define _DOLLAR       ( _SH + _4  )         // $
-#define _PERCENT      ( _SH + _5  )         // %
-#define _POWER        ( _SH + _6  )         // ^
-#define _AMPERSAND    ( _SH + _7  )         // &
-#define _APOSTROPHE   ( _SH + _8  )         // '
-#define _OPENBRACE    ( _SH + _9  )         // (
-#define _CLOSEBRACE   ( _SH + _0  )         // )
-
-#define _AT           ( _SH + _ASTERISK   ) // @
-#define _UNDERSCORE   ( _SH + _MINUS      ) // _
-#define _PLUS         ( _SH + _EQUAL      ) // +
-#define _CLOSEKEY     ( _SH + _OPENKEY    ) // }
-
-#define _GRAVE        ( _SH + _ACUTE      ) // `
-#define _CLOSEBRACKET ( _SH + _OPENBRACKET) // ]
-#define _CIRCUMFLEX   ( _SH + _TILDE      ) // ^
-
-#define _LESSTHAN     ( _SH + _COMMA      ) // <
-#define _GREATERTHAN  ( _SH + _DOT        ) // >
-#define _COLON        ( _SH + _SEMICOLON  ) // :
-#define _QUESTION     ( _SH + _SLASH      ) // ?
-
 #define _PIPE         (  _NONE )
+
+// Shifted
+#define _F6           ( _F1 )        // F6
+#define _F7           ( _F2 )        // F7
+#define _F8           ( _F3 )        // F8
+#define _F9           ( _F4 )        // F9
+#define _F10          ( _F5 )        // F10
+
+#define _EXCLAMATION  ( _1  )         // !
+#define _QUOTE        ( _2  )         // "
+#define _NUMBER       ( _3  )         // #
+#define _DOLLAR       ( _4  )         // $
+#define _PERCENT      ( _5  )         // %
+#define _POWER        ( _6  )         // ^
+#define _AMPERSAND    ( _7  )         // &
+#define _APOSTROPHE   ( _8  )         // '
+#define _OPENBRACE    ( _9  )         // (
+#define _CLOSEBRACE   ( _0  )         // )
+
+#define _AT           ( _ASTERISK   ) // @
+#define _UNDERSCORE   ( _MINUS      ) // _
+#define _PLUS         ( _EQUAL      ) // +
+#define _CLOSEKEY     ( _OPENKEY    ) // }
+
+#define _GRAVE        ( _ACUTE      ) // `
+#define _CLOSEBRACKET ( _OPENBRACKET) // ]
+#define _CIRCUMFLEX   ( _TILDE      ) // ^
+
+#define _LESSTHAN     ( _COMMA      ) // <
+#define _GREATERTHAN  ( _DOT        ) // >
+#define _COLON        ( _SEMICOLON  ) // :
+#define _QUESTION     ( _SLASH      ) // ?
+
+
