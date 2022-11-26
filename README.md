@@ -15,10 +15,31 @@ Make sure you fix the pinout if you use different hardware. And also verify the 
 change interrupts, because if y=ou use them you have less ISR handlers to work with, and will need to modify them to find out
 which pin triggered the interrupt.
 
+| Header MSX | Pin | Port mode | Teensy++ 2.0 (AT90USB1286) port |
+|:-----:|:------:|:------:|:------:|
+| 8 |    Y0   |   Input pullup + Interrupt   | D0 |
+| 9 |    Y1   |   Input pullup + Interrupt   | D1 |
+| 19 |    Y2   |   Input pullup + Interrupt   | D2 |
+| 14 |    Y3   |   Input pullup + Interrupt   | D3 |
+| 15 |    Y4   |   Input pullup + Interrupt   | E4 |
+| 13 |    Y5   |   Input pullup + Interrupt   | E5 |
+| 21 |    Y6   |   Input pullup + Interrupt   | E6 |
+| 6 |    Y7   |   Input pullup + Interrupt   | E7 |
+| 5 |    Y8   |   Input pullup + Pin Change Interrupt   | B0 |
+| 20 |    X0   |   Output   | C0 |
+| 11 |    X1   |   Output   | C1 | 
+| 18 |    X2   |   Output   |  C2 |
+| 7 |    X3   |   Output   |  C3 |
+| 16 |    X4   |   Output   |  C4 |
+| 12 |    X5   |   Output   |  C5 |
+| 10 |    X6   |   Output   |  C6 |
+| 17 |    X7   |   Output   |  C7 |
+
 # Features:
 
 * Simulates all key presses
 * Each trigger works in around 1us.
+* It powers down itself if the keyboard is missing to reduce power usage.
 
 # How it works:
 
