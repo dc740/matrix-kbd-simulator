@@ -16,8 +16,7 @@
 #define column7  7 << 4
 #define column8  8 << 4
 
-#define _NONE          0x7F
-#define _SH            0x80
+#define _NONE          0x80 //invalid key for matrix
 
 #define _0            ( column0 | 0 )
 #define _1            ( column0 | 1 )
@@ -32,17 +31,17 @@
 #define _9            ( column1 | 1 )
 #define _MINUS        ( column1 | 2 )
 #define _EQUAL        ( column1 | 3 )
-#define _OPENBRACKET  ( column1 | 4 )
-#define _ACUTE        ( column1 | 5 )
-#define _OPENKEY      ( column1 | 6 )
-#define _TILDE        ( column1 | 7 )
+#define _BACKSLASH    ( column1 | 4 )
+#define _OPENBRACKET  ( column1 | 5 )
+#define _CLOSEBRACKET ( column1 | 6 )
+#define _N_TILDE      ( column1 | 7 ) // ñ
 
-#define _ASTERISK     ( column2 | 0 )
-#define _CCEDIL       ( column2 | 1 )
+#define _APOSTROPHE   ( column2 | 0 )
+#define _SEMICOLON    ( column2 | 1 )
 #define _COMMA        ( column2 | 2 )
 #define _DOT          ( column2 | 3 )
-#define _SEMICOLON    ( column2 | 4 )
-#define _SLASH        ( column2 | 5 )
+#define _SLASH        ( column2 | 4 )
+#define _ACUTE        ( column2 | 5 ) // ´
 #define _A            ( column2 | 6 )
 #define _B            ( column2 | 7 )
 
@@ -105,20 +104,20 @@
 #define _KPTIMES      ( _NONE )    
 #define _KPSLASH      ( _NONE )    
 
-#define _KP1          ( _NONE       )    
-#define _KP2          ( _NONE       )    
-#define _KP3          ( _NONE       )    
-#define _KP4          ( _NONE       )    
+#define _KP1          ( _1       )    
+#define _KP2          ( _2       )    
+#define _KP3          ( _3       )    
+#define _KP4          ( _4       )    
 
-#define _KP5          ( _NONE       )    
-#define _KP6          ( _NONE       )    
-#define _KP7          ( _NONE       )    
-#define _KP8          ( _NONE       )   
-#define _KP9          ( _NONE       )       
-#define _KPCOMMA      ( _NONE       )    
-#define _KPDOT        ( _NONE       )    
+#define _KP5          ( _5       )    
+#define _KP6          ( _6       )    
+#define _KP7          ( _7       )    
+#define _KP8          ( _8       )   
+#define _KP9          ( _9       )       
+#define _KPCOMMA      ( _COMMA       )    
+#define _KPDOT        ( _DOT       )    
 
-#define _PIPE         (  _NONE )
+
 
 // Shifted
 #define _F6           ( _F1 )        // F6
@@ -127,25 +126,25 @@
 #define _F9           ( _F4 )        // F9
 #define _F10          ( _F5 )        // F10
 
-#define _EXCLAMATION  ( _1  )         // !
-#define _QUOTE        ( _2  )         // "
-#define _NUMBER       ( _3  )         // #
-#define _DOLLAR       ( _4  )         // $
-#define _PERCENT      ( _5  )         // %
-#define _POWER        ( _6  )         // ^
-#define _AMPERSAND    ( _7  )         // &
-#define _APOSTROPHE   ( _8  )         // '
-#define _OPENBRACE    ( _9  )         // (
-#define _CLOSEBRACE   ( _0  )         // )
+#define _EXCLAMATION  ( _1  )          // !
+#define _QUOTE        ( _APOSTROPHE  ) // "
+#define _NUMBER       ( _3  )          // #
+#define _DOLLAR       ( _4  )          // $
+#define _PERCENT      ( _5  )          // %
+#define _POWER        ( _6  )          // ^
+#define _AMPERSAND    ( _7  )          // &
+#define _ASTERISK     ( _8  )          // *
+#define _OPENBRACE    ( _9  )          // (
+#define _CLOSEBRACE   ( _0  )          // )
+#define _PIPE         ( _BACKSLASH )   // |
 
-#define _AT           ( _ASTERISK   ) // @
-#define _UNDERSCORE   ( _MINUS      ) // _
-#define _PLUS         ( _EQUAL      ) // +
-#define _CLOSEKEY     ( _OPENKEY    ) // }
+#define _AT           ( _2   )          // @
+#define _UNDERSCORE   ( _MINUS      )   // _
+#define _PLUS         ( _EQUAL      )   // +
+#define _CLOSEKEY     ( _CLOSEBRACKET ) // }
 
-#define _GRAVE        ( _ACUTE      ) // `
-#define _CLOSEBRACKET ( _OPENBRACKET) // ]
-#define _CIRCUMFLEX   ( _TILDE      ) // ^
+#define _TILDE        ( _ACUTE      ) // ~
+#define _OPENKEY      ( _OPENBRACKET) // ]
 
 #define _LESSTHAN     ( _COMMA      ) // <
 #define _GREATERTHAN  ( _DOT        ) // >
