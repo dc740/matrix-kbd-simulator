@@ -7,35 +7,6 @@
 #include <util/delay.h>
 #include "myPS2.h"
 
-// Hardware definition
-#define DAT_DDR  DDRB
-#define DAT_PIN  PINB
-#define DAT_PORT PORTB
-#define DAT_BIT  2
-
-#define CLK_DDR  DDRB
-#define CLK_PIN  PINB
-#define CLK_PORT PORTB
-#define CLK_BIT  1
-
-#define dropDAT()    do { DAT_DDR  |=  (1 << DAT_BIT); DAT_PORT &= ~(1 << DAT_BIT); } while(0)
-#define dropCLK()    do { CLK_DDR  |=  (1 << CLK_BIT); CLK_PORT &= ~(1 << CLK_BIT); } while(0)
-
-#define releaseDAT() do {  DAT_DDR  &= ~(1 << DAT_BIT); DAT_PORT |=  (1 << DAT_BIT); } while (0)
-#define releaseCLK() do {  CLK_DDR  &= ~(1 << CLK_BIT); CLK_PORT |=  (1 << CLK_BIT); } while (0)
-
-#define readDAT()  (DAT_PIN & (1 << DAT_BIT))
-#define readCLK()  (CLK_PIN & (1 << CLK_BIT))
-//
-#define waitDATrise()  do {} while (!readDAT())
-#define waitDATfall()  do {} while ( readDAT())
-
-#define waitCLKrise()  do {} while (!readCLK())
-#define waitCLKfall()  do {} while ( readCLK())
-
-
-
-
 //
 // Send a byte to the PS/2 device
 

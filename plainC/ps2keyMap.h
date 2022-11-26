@@ -1,12 +1,6 @@
-//    _____  _____  ___   _____ 
-//   | __\ \/ / _ \/ __| / /_  )
-//   | _| >  <|  _/\__ \/ / / / 
-//   |___/_/\_\_|  |___/_/ /___|
-//                              
-//   Teclado PS/2 externo para Expert XP800
+/// PS2 map originally based on EXPS2
 
-// Mapeamento dos Scancodes PS/2 para a matriz do teclado do MSX
-// PS/2 Scan codes to MSX keyboard matrix mapping
+#pragma once
 
 #define _PS2_RIGHT_ALT   0x11
 #define _PS2_RIGHT_CTRL  0x14

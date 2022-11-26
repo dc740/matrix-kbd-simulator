@@ -1,3 +1,5 @@
+#pragma once
+
 #define TO_COLUMN_ROW(x, y) (((x << 4) & 0xF0) | (y & 0xF))
 #define COLUMN_FROM_EVENT(event) ((event & 0xF0) >> 4)
 #define ROW_FROM_EVENT(event) (event & 0xF)
