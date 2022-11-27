@@ -37,7 +37,7 @@
 #endif
 
 #include "msxKeyboardMatrix.h"
-#include "ps2keyMap.h"
+#include "layoutFULL.h"
 #include "myPS2.h"             // pin definition on the file
 
 /// Teensy setting
@@ -98,8 +98,6 @@ uint8_t COLUMN_STATUS_7 = 255;
 uint8_t COLUMN_STATUS_8 = 255;
 bool EXT = false;
 bool BRK = false;
-bool SHIFT = false;
-bool LAST_SHIFT = false;
 
 //    _     _                         _
 //   (_)_ _| |_ ___ _ _ _ _ _  _ _ __| |_ ___
@@ -646,9 +644,9 @@ void loop(void) {
             case _PS2_LEFT_ARROW:   m = _LEFT    ; break;
             case _PS2_RIGHT_ARROW:  m = _RIGHT   ; break;
             case _PS2_RIGHT_ALT:    m = _CODE    ; break;
-            case _PS2_RIGHT_CTRL:   m = _CONTROL ; break;
-            case _PS2_LEFT_GUI:     m = _SPACE   ; break;
-            case _PS2_RIGHT_GUI:    m = _SPACE   ; break;
+            case _PS2_RIGHT_CTRL:   m = _SELECT  ; break;
+            case _PS2_LEFT_GUI:     m = _CAPS    ; break;
+            case _PS2_RIGHT_GUI:    m = _GRAPH   ; break;
             case _PS2_KPSLASH:      m = _KPSLASH ; break;
             case _PS2_KPENTER:      m = _ENTER   ; break;
             case _PS2_END:          m = _STOP    ; break;
@@ -658,15 +656,16 @@ void loop(void) {
             default:                m = _NONE    ; break;
           } // switch
         } else { // normal set
-          if (code == 0x83) code = 0x63; // manter tabela menor que 128 caracteres
           if (code < 128) {
-            if (SHIFT == false) m = pgm_read_byte(PS2Keymap_Normal + code);
-            else m = pgm_read_byte(PS2Keymap_Shifted + code);
+            m = pgm_read_byte(PS2Keymap_Normal + code);
           } else {
-            m = _NONE;
+              m = _NONE;
           }
         }  // end of normal set
-        updateMatrix(m);
+        if (m != _NONE) {
+            updateMatrix(m);
+        }
+        
         #ifdef DEBUGMODE
         debug ("<"); printHex (m); debug (">\n");
         #endif
@@ -856,10 +855,8 @@ void clearMatrix( void )
 void updateMatrix(uint8_t k) {
   if (BRK == true) { // break code
     BRK = false;
-    if (k == _SHIFT) SHIFT = false; // Reset SHIFT flag on break code of any shift
     setBit(k);
   } else {  // make code
-    if (k == _SHIFT) SHIFT = true; // Set SHIFT flag on make code of any shift
     clearBit(k);
   }
 }

@@ -16,7 +16,7 @@
 #define column7  7 << 4
 #define column8  8 << 4
 
-#define _NONE          0x80 //invalid key for matrix
+#define _NONE          0xFF //invalid key for matrix
 
 #define _0            ( column0 | 0 )
 #define _1            ( column0 | 1 )
@@ -120,6 +120,8 @@
 
 
 // Shifted
+/*
+ * These are not used in the current implementation
 #define _F6           ( _F1 )        // F6
 #define _F7           ( _F2 )        // F7
 #define _F8           ( _F3 )        // F8
@@ -150,5 +152,5 @@
 #define _GREATERTHAN  ( _DOT        ) // >
 #define _COLON        ( _SEMICOLON  ) // :
 #define _QUESTION     ( _SLASH      ) // ?
-
+*/
 
