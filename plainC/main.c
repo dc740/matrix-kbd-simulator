@@ -15,7 +15,7 @@
 * You should have received a copy of the GNU General Public License
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-//#define DEBUGMODE
+#define DEBUGMODE
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -71,6 +71,7 @@ void updateMatrix(uint8_t k);
 void clearMatrix( void );
 void poweroff();
 bool initalizeKeyboard(void);
+void toggle_instant_mode(void);
 void setup(void);
 void loop(void);
 #ifdef DEBUGMODE
@@ -86,7 +87,6 @@ void initsoftSend(void);
 //   \ V / _` | '_| / _` | '_ \ / -_|_-<
 //    \_/\__,_|_| |_\__,_|_.__/_\___/__/
 //
-static volatile uint8_t cc = 5;
 uint8_t COLUMN_STATUS_0 = 255;
 uint8_t COLUMN_STATUS_1 = 255;
 uint8_t COLUMN_STATUS_2 = 255;
@@ -98,6 +98,9 @@ uint8_t COLUMN_STATUS_7 = 255;
 uint8_t COLUMN_STATUS_8 = 255;
 bool EXT = false;
 bool BRK = false;
+// low-latency mode for games taht only read arrows and space:
+bool INSTANT_MODE = false;
+uint8_t INSTANT_MODE_C = 8;
 
 //    _     _                         _
 //   (_)_ _| |_ ___ _ _ _ _ _  _ _ __| |_ ___
@@ -593,6 +596,9 @@ void setup(void) {
     UCSR1B = 0; // disable USART
     //keyboard initialization
     if (!initalizeKeyboard()){
+        #ifdef DEBUGMODE
+        debug ("No keyboard!");
+        #endif
         poweroff();
     }
     // Configure Interrupts
@@ -635,6 +641,9 @@ void loop(void) {
         EXT = true; //Serial.println ("extend");
       } else if (code == 0xF0) {
         BRK = true; //Serial.println ("release");
+      } else if (code == 0x7E && BRK) {
+          toggle_instant_mode();
+          BRK=false; // We have to do it manually if we don't call updateMatrix
       } else {
         if (EXT == true) { // extended keys
           EXT = false;
@@ -801,12 +810,29 @@ bool initalizeKeyboard( void )
   return false;
 }
 
+// Set PORTC instantly with only one column information
+// This is used on many games that only read the arrows and space keys.
+void toggle_instant_mode(void){
+    clearMatrix();
+    if (INSTANT_MODE) {
+        INSTANT_MODE = false;
+        #ifdef DEBUGMODE
+        debug("IM disabled.\n");
+        #endif
+    } else {
+        INSTANT_MODE = true;
+        #ifdef DEBUGMODE
+        debug("IM enabled. Column:\n");
+        printHex(INSTANT_MODE_C);
+        #endif
+    }
+    
+}
+
 //
 // Activate the key addressed by m
 //
-void clearBit(uint8_t m) {
-  uint8_t col = COLUMN_FROM_EVENT(m) ;
-  uint8_t lin = ROW_FROM_EVENT(m);
+void clearBit(uint8_t col, uint8_t lin) {
   #ifdef DEBUGMODE
   softSendByte('T');
   #endif
@@ -820,9 +846,7 @@ void clearBit(uint8_t m) {
 //
 // Deactivate the key addressed by m
 //
-void setBit(uint8_t m) {
-  uint8_t col = COLUMN_FROM_EVENT(m) ;
-  uint8_t lin = ROW_FROM_EVENT(m);
+void setBit(uint8_t col, uint8_t lin) {
   #ifdef DEBUGMODE
   softSendByte('_');
   #endif
@@ -853,11 +877,17 @@ void clearMatrix( void )
 // Update the Keyboard Matrix based on a map code for a row and a line
 //
 void updateMatrix(uint8_t k) {
+  uint8_t col = COLUMN_FROM_EVENT(k) ;
+  uint8_t lin = ROW_FROM_EVENT(k);
   if (BRK == true) { // break code
     BRK = false;
-    setBit(k);
+    setBit(col, lin);
   } else {  // make code
-    clearBit(k);
+    clearBit(col, lin);
+  }
+  if (INSTANT_MODE && (INSTANT_MODE_C == col)){
+      uint8_t * column = getColumn(col);
+      PORTC = *column;
   }
 }
 
