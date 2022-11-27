@@ -586,7 +586,6 @@ void setup(void) {
     DDRB = 0xFE; // PB0 input. other output
     PORTB = _BV(PB0); // PB0 pullup
     DDRD |= _BV(PD6); //Port 6 OUTPUT
-    PORTD |= _BV(PD6); //Port 6 HIGH
     // Output pins (simulates matrix)
     DDRC = 0xFF; // PORTC (10 to 18 in teensy++ 2.0) is the column output
     PORTC = 0xFF; // write high on all ports
