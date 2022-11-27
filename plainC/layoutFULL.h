@@ -7,6 +7,7 @@
 //----------------------------------
 // ESC   | ESC
 // \     | ° (left of number 1 key)
+// /     | < (left of Z key)
 // SELECT| Right Control (context menu key was problematic)
 // HOME  | F9
 // INSERT| F10
