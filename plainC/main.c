@@ -15,7 +15,7 @@
 * You should have received a copy of the GNU General Public License
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define DEBUGMODE
+//#define DEBUGMODE
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -98,9 +98,6 @@ uint8_t COLUMN_STATUS_7 = 255;
 uint8_t COLUMN_STATUS_8 = 255;
 bool EXT = false;
 bool BRK = false;
-// low-latency mode for games taht only read arrows and space:
-bool INSTANT_MODE = false;
-uint8_t INSTANT_MODE_C = 8;
 
 //    _     _                         _
 //   (_)_ _| |_ ___ _ _ _ _ _  _ _ __| |_ ___
@@ -641,9 +638,6 @@ void loop(void) {
         EXT = true; //Serial.println ("extend");
       } else if (code == 0xF0) {
         BRK = true; //Serial.println ("release");
-      } else if (code == 0x7E && BRK) {
-          toggle_instant_mode();
-          BRK=false; // We have to do it manually if we don't call updateMatrix
       } else {
         if (EXT == true) { // extended keys
           EXT = false;
@@ -809,23 +803,66 @@ bool initalizeKeyboard( void )
   }
   return false;
 }
+// not really atomic, but works for us 
+// 1 __tmp_reg__ holds the value
+// 2 disable interrupts
+// 3 check if column is clear (selected) 
+// 4 jump forward if not clear
+// 5 else set the value 
+// 6 restore interrupts
+#define atomicCheckAndSetPortC(port, column, value)  \
+            asm volatile( \
+            "ld __tmp_reg__,%a0" "\n\t"                      \
+            "cli" "\n\t"                                   \
+            "sbic %[_PIN], %[_COLUMN]" "\n\t"                  \
+            "rjmp  1f" "\n\t"             \
+            "out %[_PORTC],__tmp_reg__" "\n\t"           \
+            "1:" "\n\t"   \
+            "sei" "\n\t"                                 \
+            ::[_NVALUE]   "e" ( value  ), \
+            [_COLUMN]   "I" ( column  ), \
+            [_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ), \
+            [_PIN]   "I" (_SFR_IO_ADDR(port)  ) \
+            )
 
-// Set PORTC instantly with only one column information
-// This is used on many games that only read the arrows and space keys.
-void toggle_instant_mode(void){
-    clearMatrix();
-    if (INSTANT_MODE) {
-        INSTANT_MODE = false;
-        #ifdef DEBUGMODE
-        debug("IM disabled.\n");
-        #endif
-    } else {
-        INSTANT_MODE = true;
-        #ifdef DEBUGMODE
-        debug("IM enabled. Column:\n");
-        printHex(INSTANT_MODE_C);
-        #endif
-    }
+
+// sets the port without being interrupted. Prevents setting the port
+// after a raising edge.
+// if a raising edge happens, it will clear the port AFTER we set it here
+// which is what we want.
+inline void setPortAtomic(uint8_t column, uint8_t * value) {
+    
+    switch (column) {
+        case 0:
+            atomicCheckAndSetPortC(PIND,0,value);
+            break;
+        case 1:
+            atomicCheckAndSetPortC(PIND,1,value);
+            break;
+        case 2:
+            atomicCheckAndSetPortC(PIND,2,value);
+            break;
+        case 3:
+            atomicCheckAndSetPortC(PIND,3,value);
+            break;
+        case 4:
+            atomicCheckAndSetPortC(PINE,4,value);
+            break;
+        case 5:
+            atomicCheckAndSetPortC(PINE,5,value);
+            break;
+        case 6:
+            atomicCheckAndSetPortC(PINE,6,value);
+            break;
+        case 7:
+            atomicCheckAndSetPortC(PINE,7,value);
+            break;
+        case 8:
+            atomicCheckAndSetPortC(PINB,0,value);
+            break;
+        default:
+            break;
+        }
     
 }
 
@@ -838,6 +875,8 @@ void clearBit(uint8_t col, uint8_t lin) {
   #endif
   uint8_t * column = getColumn(col);
   *column &= ~(1 << lin);
+  setPortAtomic(col, column);
+  
   #ifdef DEBUGMODE
   softSendByte('\\');
   #endif
@@ -852,6 +891,7 @@ void setBit(uint8_t col, uint8_t lin) {
   #endif
   uint8_t * column = getColumn(col);
   *column |= (1 << lin);
+  setPortAtomic(col, column);
   #ifdef DEBUGMODE
   softSendByte('/');
   #endif
@@ -884,10 +924,6 @@ void updateMatrix(uint8_t k) {
     setBit(col, lin);
   } else {  // make code
     clearBit(col, lin);
-  }
-  if (INSTANT_MODE && (INSTANT_MODE_C == col)){
-      uint8_t * column = getColumn(col);
-      PORTC = *column;
   }
 }
 
