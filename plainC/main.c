@@ -71,6 +71,7 @@ void updateMatrix(uint8_t k);
 void clearMatrix( void );
 void poweroff();
 bool initalizeKeyboard(void);
+void toggle_instant_mode(void);
 void setup(void);
 void loop(void);
 #ifdef DEBUGMODE
@@ -86,7 +87,6 @@ void initsoftSend(void);
 //   \ V / _` | '_| / _` | '_ \ / -_|_-<
 //    \_/\__,_|_| |_\__,_|_.__/_\___/__/
 //
-static volatile uint8_t cc = 5;
 uint8_t COLUMN_STATUS_0 = 255;
 uint8_t COLUMN_STATUS_1 = 255;
 uint8_t COLUMN_STATUS_2 = 255;
@@ -592,6 +592,9 @@ void setup(void) {
     UCSR1B = 0; // disable USART
     //keyboard initialization
     if (!initalizeKeyboard()){
+        #ifdef DEBUGMODE
+        debug ("No keyboard!");
+        #endif
         poweroff();
     }
     // Configure Interrupts
@@ -799,18 +802,80 @@ bool initalizeKeyboard( void )
   }
   return false;
 }
+// not really atomic, but works for us 
+// 1 __tmp_reg__ holds the value
+// 2 disable interrupts
+// 3 check if column is clear (selected) 
+// 4 jump forward if not clear
+// 5 else set the value 
+// 6 restore interrupts
+#define atomicCheckAndSetPortC(port, column, value)  \
+            asm volatile( \
+            "ld __tmp_reg__,%a0" "\n\t"                      \
+            "cli" "\n\t"                                   \
+            "sbic %[_PIN], %[_COLUMN]" "\n\t"                  \
+            "rjmp  1f" "\n\t"             \
+            "out %[_PORTC],__tmp_reg__" "\n\t"           \
+            "1:" "\n\t"   \
+            "sei" "\n\t"                                 \
+            ::[_NVALUE]   "e" ( value  ), \
+            [_COLUMN]   "I" ( column  ), \
+            [_PORTC]   "I" (_SFR_IO_ADDR(PORTC)  ), \
+            [_PIN]   "I" (_SFR_IO_ADDR(port)  ) \
+            )
+
+
+// sets the port without being interrupted. Prevents setting the port
+// after a raising edge.
+// if a raising edge happens, it will clear the port AFTER we set it here
+// which is what we want.
+inline void setPortAtomic(uint8_t column, uint8_t * value) {
+    
+    switch (column) {
+        case 0:
+            atomicCheckAndSetPortC(PIND,0,value);
+            break;
+        case 1:
+            atomicCheckAndSetPortC(PIND,1,value);
+            break;
+        case 2:
+            atomicCheckAndSetPortC(PIND,2,value);
+            break;
+        case 3:
+            atomicCheckAndSetPortC(PIND,3,value);
+            break;
+        case 4:
+            atomicCheckAndSetPortC(PINE,4,value);
+            break;
+        case 5:
+            atomicCheckAndSetPortC(PINE,5,value);
+            break;
+        case 6:
+            atomicCheckAndSetPortC(PINE,6,value);
+            break;
+        case 7:
+            atomicCheckAndSetPortC(PINE,7,value);
+            break;
+        case 8:
+            atomicCheckAndSetPortC(PINB,0,value);
+            break;
+        default:
+            break;
+        }
+    
+}
 
 //
 // Activate the key addressed by m
 //
-void clearBit(uint8_t m) {
-  uint8_t col = COLUMN_FROM_EVENT(m) ;
-  uint8_t lin = ROW_FROM_EVENT(m);
+void clearBit(uint8_t col, uint8_t lin) {
   #ifdef DEBUGMODE
   softSendByte('T');
   #endif
   uint8_t * column = getColumn(col);
   *column &= ~(1 << lin);
+  setPortAtomic(col, column);
+  
   #ifdef DEBUGMODE
   softSendByte('\\');
   #endif
@@ -819,14 +884,13 @@ void clearBit(uint8_t m) {
 //
 // Deactivate the key addressed by m
 //
-void setBit(uint8_t m) {
-  uint8_t col = COLUMN_FROM_EVENT(m) ;
-  uint8_t lin = ROW_FROM_EVENT(m);
+void setBit(uint8_t col, uint8_t lin) {
   #ifdef DEBUGMODE
   softSendByte('_');
   #endif
   uint8_t * column = getColumn(col);
   *column |= (1 << lin);
+  setPortAtomic(col, column);
   #ifdef DEBUGMODE
   softSendByte('/');
   #endif
@@ -852,11 +916,13 @@ void clearMatrix( void )
 // Update the Keyboard Matrix based on a map code for a row and a line
 //
 void updateMatrix(uint8_t k) {
+  uint8_t col = COLUMN_FROM_EVENT(k) ;
+  uint8_t lin = ROW_FROM_EVENT(k);
   if (BRK == true) { // break code
     BRK = false;
-    setBit(k);
+    setBit(col, lin);
   } else {  // make code
-    clearBit(k);
+    clearBit(col, lin);
   }
 }
 
