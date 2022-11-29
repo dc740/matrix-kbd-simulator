@@ -71,7 +71,6 @@ void updateMatrix(uint8_t k);
 void clearMatrix( void );
 void poweroff();
 bool initalizeKeyboard(void);
-void toggle_instant_mode(void);
 void setup(void);
 void loop(void);
 #ifdef DEBUGMODE
