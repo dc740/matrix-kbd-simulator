@@ -683,6 +683,10 @@ void loop(void) {
 void poweroff() {
   EIMSK  = 0x0; // disnable all external interrupts
   PCMSK0 = 0x0;        // disable pin change interrupts
+  _delay_ms(2000);
+  PORTD |= _BV(PD6); //turn on led
+  _delay_ms(2000);
+  PORTD &= ~_BV(PD6); //turn off led
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
   cli();                         //stop interrupts to ensure the BOD timed sequence executes as required
   sleep_enable();
@@ -791,7 +795,7 @@ bool initalizeKeyboard( void )
   } while ( (readCLK()) && (timeout));
   if (timeout) {
       dropDAT();
-      _delay_ms(150); // lets cancel everything
+      _delay_ms(2000); // lets cancel everything
       writePS2(0xff);  // send reset code
       ack = readPS2();  // byte, kbd does self test, returns ACK
       ack = readPS2();  // another ack when self test is done
