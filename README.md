@@ -12,6 +12,7 @@ The hardest part was getting the timing right.
 You need to connect X0-X7 and Y0-Y8 from the keyboard header in your MSX to your Teensy++ 2.0, and this app will simulate to be the keyboard.
 Y0-Y7 -> D0..D3 and E4..E7, because we use int0...int7
 Y8 goes to B0, using PCINT0.
+
 Make sure you fix the pinout if you use different hardware. And also verify the ISRs and make sure you know when you are using pin
 change interrupts, because if y=ou use them you have less ISR handlers to work with, and will need to modify them to find out
 which pin triggered the interrupt.
@@ -89,14 +90,17 @@ Adding an spanish layout would essentially mean to lose most of the special char
 So I created a layout that matches the original one, but on an spanish keyboard.
 
 If anyone wants to add a new layout, please feel free to send a Pull Request.
+
 Things to consider before starting such a project:
+
 Each key on the spanish keyboard does NOT have a 1-1 match on the MSX and viceversa.
 You will need to map a scan code from the PS2 keyboard (or USB if you have a host enabled device) and map it to
 several MSX keys.
 Per last statement, each keypress on the PS2 keyboard can result in SHIFT, GRAPH, CODE keys + another character, all in one single press,
 but most important, the shift and Alt GR status from the PS2 keyboard must be completely independent from the same keys on the MSX keyboard.
+
 Some examples:
-'{' on the spanish keyboard is produced by pressing 'Alt Gr' + '´' key. And needs to be translated to 'SHIFT' + '\[' on the MSX matrix.
-'`' on the spanish keyboard is produced by pressing '`' key. And needs to be translated to 'CODE' + '´' on the MSX matrix.
-'^' on the spanish keyboard is produced by pressing 'SHIFT'+'`' key. And needs to be translated to 'CODE' + 'SHIFT' + '´' on the MSX matrix.
+* '{' on the spanish keyboard is produced by pressing 'Alt Gr' + '´' key. And needs to be translated to 'SHIFT' + '\[' on the MSX matrix.
+* '\`' on the spanish keyboard is produced by pressing '\`' key. And needs to be translated to 'CODE' + '´' on the MSX matrix.
+* '^' on the spanish keyboard is produced by pressing 'SHIFT'+'\`' key. And needs to be translated to 'CODE' + 'SHIFT' + '´' on the MSX matrix.
 
