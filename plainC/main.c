@@ -103,6 +103,9 @@ bool BRK = false;
 //   | | ' \  _/ -_) '_| '_| || | '_ \  _(_-<
 //   |_|_||_\__\___|_| |_|  \_,_| .__/\__/__/
 //                              |_|
+// TODO: move this to a .S file! they are too long to be here
+// and also too long for a macro, but they are basically all the same
+// except for the pin change interrupt which only changes a few lines.
 volatile uint8_t zero = 0;
 
 // COLUMN_STATUS[0]
@@ -589,8 +592,10 @@ void setup(void) {
     DDRC = 0xFF; // PORTC (10 to 18 in teensy++ 2.0) is the column output
     PORTC = 0xFF; // write high on all ports
     UCSR1B = 0; // disable USART
+
     //keyboard initialization
-    if (!initalizeKeyboard()){
+    _delay_ms(800); //wait for the keyboard to power up
+    if (!initPS2()){
         #ifdef DEBUGMODE
         debug ("No keyboard!");
         #endif
@@ -765,46 +770,6 @@ inline uint8_t* getColumn(uint8_t column)
     return selectedColumn;
 }
 
-//
-// Test for connection and Initialize Keyboard
-// Returns false on success
-// and true on error
-//
-bool initalizeKeyboard( void )
-{
-  uint8_t ack;
-  _delay_ms(1000); //It takes around 750ms to start
-  // First... lets see if it's connected
-  releaseCLK();
-  releaseDAT();
-  _delay_us(50);
-    // http://www.burtonsys.com/ps2_chapweske.htm
-  // 1)   Bring the Clock line low for at least 100 microseconds.
-  dropCLK();
-  _delay_us(150);
-  // 2)   Bring the Data line low.
-  dropDAT();
-  _delay_us(10);
-  // 3)   Release the Clock line.
-  releaseCLK();
-  _delay_us(5); // give some time for the line to raise
-  // 4)   Wait for the device to bring the Clock line low.
-  long timeout = 50000; // we loop to make up some time
-  do {
-      timeout--;
-  } while ( (readCLK()) && (timeout));
-  if (timeout) {
-      dropDAT();
-      _delay_ms(2000); // lets cancel everything
-      writePS2(0xff);  // send reset code
-      ack = readPS2();  // byte, kbd does self test, returns ACK
-      ack = readPS2();  // another ack when self test is done
-      if (ack == 0xAA) { //0xAA= PS2_KC_BAT success code
-          return true;
-      }
-  }
-  return false;
-}
 // not really atomic, but works for us 
 // 1 __tmp_reg__ holds the value
 // 2 disable interrupts

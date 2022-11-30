@@ -31,8 +31,14 @@
 #define waitCLKrise()  do {} while (!readCLK())
 #define waitCLKfall()  do {} while ( readCLK())
 
-// Send one byte to the device
+// Pretty much the same as writePS2, except with a timeout
+// and verification.
+// Checks that the keyboard is connected and correctly initialized
+// returns true on success. false otherwise
+bool initPS2();
+
+// Send one byte to the device. Blocking implementation.
 void writePS2(uint8_t data); 
 
-// Receive one byte from the device
+// Receive one byte from the device. Blocking implementation.
 uint8_t readPS2(void);           
