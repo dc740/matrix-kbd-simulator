@@ -8,6 +8,7 @@ The hardest part was getting the timing right.
 
 # Setup:
 
+## MSX to Teensy pinout
 You need to connect X0-X7 and Y0-Y8 from the keyboard header in your MSX to your Teensy++ 2.0, and this app will simulate to be the keyboard.
 Y0-Y7 -> D0..D3 and E4..E7, because we use int0...int7
 Y8 goes to B0, using PCINT0.
@@ -36,8 +37,10 @@ which pin triggered the interrupt.
 | 17 |    X7   |   Output   |  C7 |
 
 
+## PS2 port pinout
+
 | PS2 Pin | Teensy++ 2.0 (AT90USB1286) port |
-|:-----:|:------:|:------:|
+|:------:|:------:|
 | DATA | B2 |
 | CLOCK | B1 |
 
@@ -93,7 +96,7 @@ several MSX keys.
 Per last statement, each keypress on the PS2 keyboard can result in SHIFT, GRAPH, CODE keys + another character, all in one single press,
 but most important, the shift and Alt GR status from the PS2 keyboard must be completely independent from the same keys on the MSX keyboard.
 Some examples:
-'{' on the spanish keyboard is produced by pressing 'Alt Gr' + '´' key. And needs to be translated to 'SHIFT' + '[' on the MSX matrix.
+'{' on the spanish keyboard is produced by pressing 'Alt Gr' + '´' key. And needs to be translated to 'SHIFT' + '\[' on the MSX matrix.
 '`' on the spanish keyboard is produced by pressing '`' key. And needs to be translated to 'CODE' + '´' on the MSX matrix.
 '^' on the spanish keyboard is produced by pressing 'SHIFT'+'`' key. And needs to be translated to 'CODE' + 'SHIFT' + '´' on the MSX matrix.
 
